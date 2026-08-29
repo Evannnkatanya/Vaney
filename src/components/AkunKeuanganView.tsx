@@ -171,17 +171,29 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
             Jaga keamanan catatan transaksi Anda dengan mengekspor backup lokal berkala.
           </p>
 
-          <button
-            onClick={() => {
-              // Dispatch custom event or alert to open Backup Modal
-              const event = new CustomEvent('open-backup-modal');
-              window.dispatchEvent(event);
-            }}
-            className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-semibold text-xs py-3 rounded-xl shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            <span>Buka Menu Backup & Restore</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                const event = new CustomEvent('open-backup-modal');
+                window.dispatchEvent(event);
+              }}
+              className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-semibold text-xs py-3 rounded-xl shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">download</span>
+              <span>Lokal Backup</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const event = new CustomEvent('open-supabase-modal');
+                window.dispatchEvent(event);
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-3 rounded-xl shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">cloud_sync</span>
+              <span>Supabase Cloud</span>
+            </button>
+          </div>
         </div>
       </div>
     </main>

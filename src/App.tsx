@@ -27,6 +27,7 @@ import { TransactionDetailModal } from './components/TransactionDetailModal';
 import { AccountDetailModal } from './components/AccountDetailModal';
 import { PinLockScreen } from './components/PinLockScreen';
 import { ModalBackupRestore } from './components/ModalBackupRestore';
+import { ModalSupabaseSync } from './components/ModalSupabaseSync';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
@@ -43,11 +44,19 @@ export default function App() {
 
   // Modals state
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenBackup = () => setIsBackupModalOpen(true);
+    const handleOpenSupabase = () => setIsSupabaseModalOpen(true);
+
     window.addEventListener('open-backup-modal', handleOpenBackup);
-    return () => window.removeEventListener('open-backup-modal', handleOpenBackup);
+    window.addEventListener('open-supabase-modal', handleOpenSupabase);
+
+    return () => {
+      window.removeEventListener('open-backup-modal', handleOpenBackup);
+      window.removeEventListener('open-supabase-modal', handleOpenSupabase);
+    };
   }, []);
 
   // Core data states with localStorage initialization
@@ -394,6 +403,21 @@ export default function App() {
           if (restored.budgetPots) setBudgetPots(restored.budgetPots);
           if (restored.categoryMappings) setCategoryMappings(restored.categoryMappings);
           if (restored.transactions) setTransactions(restored.transactions);
+        }}
+      />
+
+      <ModalSupabaseSync
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
+        accounts={accounts}
+        budgetPots={budgetPots}
+        categoryMappings={categoryMappings}
+        transactions={transactions}
+        onApplyCloudData={(cloudData) => {
+          if (cloudData.accounts) setAccounts(cloudData.accounts);
+          if (cloudData.budgetPots) setBudgetPots(cloudData.budgetPots);
+          if (cloudData.categoryMappings) setCategoryMappings(cloudData.categoryMappings);
+          if (cloudData.transactions) setTransactions(cloudData.transactions);
         }}
       />
     </div>
