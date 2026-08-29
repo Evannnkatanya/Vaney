@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { formatRupiah } from '../data/initialData';
 import { Account, BudgetPot, TabType, Transaction } from '../types';
 
@@ -25,6 +25,36 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const bcaAcc = accounts.find((a) => a.id === 'bca') || accounts[0];
   const gopayAcc = accounts.find((a) => a.id === 'ewallet') || accounts[1];
   const cashAcc = accounts.find((a) => a.id === 'cash') || accounts[2];
+
+  // Dynamic monthly pot spending & savings calculation
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIdx = now.getMonth();
+  const currentMonthCode = `${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}`;
+
+  const currentMonthTransactions = useMemo(() => {
+    return transactions.filter(
+      (t) => t.date && t.date.startsWith(currentMonthCode)
+    );
+  }, [transactions, currentMonthCode]);
+
+  const spentHarian = useMemo(() => {
+    return currentMonthTransactions
+      .filter((t) => t.type === 'expense' && t.potType === 'harian')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthTransactions]);
+
+  const spentBulanan = useMemo(() => {
+    return currentMonthTransactions
+      .filter((t) => t.type === 'expense' && t.potType === 'bulanan')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthTransactions]);
+
+  const collectedNabung = useMemo(() => {
+    return currentMonthTransactions
+      .filter((t) => t.type === 'savings' || t.potType === 'nabung')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthTransactions]);
 
   return (
     <main
@@ -100,19 +130,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {pots.map((pot) => {
             const isSavingsPot = pot.id === 'pot-nabung';
+            const isHarianPot = pot.id === 'pot-harian';
 
-            const pctValue = isSavingsPot
-              ? pot.totalAmount > 0
-                ? Math.min(100, Math.round(((pot.remainingAmount || 0) / pot.totalAmount) * 100))
-                : 0
-              : pot.totalAmount > 0
-              ? Math.min(
-                  100,
-                  Math.round(
-                    ((pot.totalAmount - (pot.remainingAmount || 0)) / pot.totalAmount) * 100
-                  )
-                )
-              : 0;
+            let pctValue = 0;
+            let mainLabel = '';
+            let subLabel = '';
+
+            if (isSavingsPot) {
+              const target = pot.totalAmount || 0;
+              pctValue = target > 0 ? Math.min(100, Math.round((collectedNabung / target) * 100)) : 0;
+              mainLabel = `Terkumpul ${formatRupiah(collectedNabung)}`;
+              subLabel = `Target ${formatRupiah(target)}`;
+            } else if (isHarianPot) {
+              const total = pot.totalAmount || 0;
+              const remaining = Math.max(0, total - spentHarian);
+              pctValue = total > 0 ? Math.min(100, Math.round((spentHarian / total) * 100)) : 0;
+              mainLabel = `Sisa ${formatRupiah(remaining)}`;
+              subLabel = `Total ${formatRupiah(total)}`;
+            } else {
+              // pot-bulanan
+              const total = pot.totalAmount || 0;
+              const remaining = Math.max(0, total - spentBulanan);
+              pctValue = total > 0 ? Math.min(100, Math.round((spentBulanan / total) * 100)) : 0;
+              mainLabel = `Sisa ${formatRupiah(remaining)}`;
+              subLabel = `Total ${formatRupiah(total)}`;
+            }
 
             return (
               <div
@@ -151,17 +193,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   {isSavingsPot ? (
                     <>
                       <span className="text-[#685d4c] font-bold">
-                        Terkumpul {formatRupiah(pot.remainingAmount || 0)}
+                        {mainLabel}
                       </span>
                       <span className="text-[#717973]">
-                        Target {formatRupiah(pot.totalAmount)}
+                        {subLabel}
                       </span>
                     </>
                   ) : (
                     <>
-                      <span>Sisa {formatRupiah(pot.remainingAmount || 0)}</span>
+                      <span>{mainLabel}</span>
                       <span className="text-[#717973]">
-                        Total {formatRupiah(pot.totalAmount)}
+                        {subLabel}
                       </span>
                     </>
                   )}
