@@ -4,6 +4,7 @@ import {
   INITIAL_BUDGET_POTS,
   INITIAL_CATEGORY_MAPPINGS,
   INITIAL_TRANSACTIONS,
+  TRANSACTION_CATEGORIES,
 } from './data/initialData';
 import {
   Account,
@@ -29,6 +30,8 @@ import { PinLockScreen } from './components/PinLockScreen';
 import { ModalBackupRestore } from './components/ModalBackupRestore';
 import { ModalSupabaseSync } from './components/ModalSupabaseSync';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { OCRScanModal } from './components/OCRScanModal';
+import { VoiceInputModal } from './components/VoiceInputModal';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
@@ -46,6 +49,8 @@ export default function App() {
   // Modals state
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+  const [isOCROpen, setIsOCROpen] = useState(false);
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenBackup = () => setIsBackupModalOpen(true);
@@ -60,18 +65,18 @@ export default function App() {
     };
   }, []);
 
-// Ensure old cached mock data is cleanly wiped to Rp 0 on version upgrade
-const VANEY_STORAGE_VERSION = 'vaney_v2_zero_clean';
-if (typeof window !== 'undefined') {
-  const currentVersion = localStorage.getItem('vaney_storage_version');
-  if (currentVersion !== VANEY_STORAGE_VERSION) {
-    localStorage.removeItem('vaney_accounts');
-    localStorage.removeItem('vaney_budget_pots');
-    localStorage.removeItem('vaney_category_mappings');
-    localStorage.removeItem('vaney_transactions');
-    localStorage.setItem('vaney_storage_version', VANEY_STORAGE_VERSION);
+  // Ensure old cached mock data is cleanly wiped to Rp 0 on version upgrade
+  const VANEY_STORAGE_VERSION = 'vaney_v2_zero_clean';
+  if (typeof window !== 'undefined') {
+    const currentVersion = localStorage.getItem('vaney_storage_version');
+    if (currentVersion !== VANEY_STORAGE_VERSION) {
+      localStorage.removeItem('vaney_accounts');
+      localStorage.removeItem('vaney_budget_pots');
+      localStorage.removeItem('vaney_category_mappings');
+      localStorage.removeItem('vaney_transactions');
+      localStorage.setItem('vaney_storage_version', VANEY_STORAGE_VERSION);
+    }
   }
-}
 
   // Core data states with localStorage initialization
   const [accounts, setAccounts] = useState<Account[]>(() => {
@@ -222,12 +227,78 @@ if (typeof window !== 'undefined') {
     }
   };
 
+  // Direct save handlers for OCR & Voice
+  const handleDirectSaveScanned = (scanned: {
+    merchant: string;
+    amount: number;
+    category: string;
+    date?: string;
+  }) => {
+    const catObj =
+      TRANSACTION_CATEGORIES.find(
+        (c) => c.name.toLowerCase() === scanned.category.toLowerCase(),
+      ) ||
+      TRANSACTION_CATEGORIES.find((c) => c.id === 'belanja') ||
+      TRANSACTION_CATEGORIES[0];
+
+    const targetAccount = accounts.find((a) => !a.isCredit && a.balance > 0) || accounts[0];
+
+    handleSaveTransaction({
+      title: scanned.merchant || 'Struk Belanja',
+      amount: scanned.amount,
+      type: 'expense',
+      date: scanned.date || new Date().toISOString().split('T')[0],
+      categoryName: catObj.name,
+      categoryIcon: catObj.icon,
+      categoryBgClass: `${catObj.bgClass} ${catObj.textClass}`,
+      categoryTextClass: catObj.textClass,
+      accountId: targetAccount ? targetAccount.id : 'bca',
+      potType: 'harian',
+      note: `Struk: ${scanned.merchant}`,
+    });
+
+    setIsOCROpen(false);
+    handleTabChange('home');
+  };
+
+  const handleDirectSaveVoice = (parsed: {
+    merchant: string;
+    amount: number;
+    category: string;
+  }) => {
+    const catObj =
+      TRANSACTION_CATEGORIES.find(
+        (c) => c.name.toLowerCase() === parsed.category.toLowerCase(),
+      ) ||
+      TRANSACTION_CATEGORIES.find((c) => c.id === 'makan') ||
+      TRANSACTION_CATEGORIES[0];
+
+    const targetAccount = accounts.find((a) => !a.isCredit && a.balance > 0) || accounts[0];
+
+    handleSaveTransaction({
+      title: parsed.merchant || 'Pengeluaran Suara',
+      amount: parsed.amount,
+      type: 'expense',
+      date: new Date().toISOString().split('T')[0],
+      categoryName: catObj.name,
+      categoryIcon: catObj.icon,
+      categoryBgClass: `${catObj.bgClass} ${catObj.textClass}`,
+      categoryTextClass: catObj.textClass,
+      accountId: targetAccount ? targetAccount.id : 'bca',
+      potType: 'harian',
+      note: `Suara: ${parsed.merchant}`,
+    });
+
+    setIsVoiceOpen(false);
+    handleTabChange('home');
+  };
+
   // Delete transaction
   const handleDeleteTransaction = (id: string) => {
     const txToDelete = transactions.find((t) => t.id === id);
     if (!txToDelete) return;
 
-    // Refund account
+    // Refund account balance
     setAccounts((prev) =>
       prev.map((acc) => {
         if (acc.id === txToDelete.accountId) {
@@ -243,14 +314,14 @@ if (typeof window !== 'undefined') {
       })
     );
 
-    // Refund pot
+    // Refund budget pot if applicable
     if (txToDelete.potType === 'harian') {
       setBudgetPots((prev) =>
         prev.map((pot) =>
           pot.id === 'pot-harian'
             ? {
                 ...pot,
-                remainingAmount: pot.remainingAmount + txToDelete.amount,
+                remainingAmount: Math.min(pot.totalAmount, pot.remainingAmount + txToDelete.amount),
               }
             : pot
         )
@@ -261,7 +332,7 @@ if (typeof window !== 'undefined') {
           pot.id === 'pot-bulanan'
             ? {
                 ...pot,
-                remainingAmount: pot.remainingAmount + txToDelete.amount,
+                remainingAmount: Math.min(pot.totalAmount, pot.remainingAmount + txToDelete.amount),
               }
             : pot
         )
@@ -269,31 +340,33 @@ if (typeof window !== 'undefined') {
     }
 
     setTransactions((prev) => prev.filter((t) => t.id !== id));
+    setSelectedTransaction(null);
   };
 
-  // Add Account
-  const handleSaveAccount = (newAccountData: Omit<Account, 'id'>) => {
+  // Add new Account
+  const handleSaveAccount = (newAccData: Omit<Account, 'id'>) => {
     const newId = `acc-${Date.now()}`;
-    const newAccount: Account = {
-      ...newAccountData,
+    const newAcc: Account = {
+      ...newAccData,
       id: newId,
     };
-    setAccounts((prev) => [...prev, newAccount]);
+    setAccounts((prev) => [...prev, newAcc]);
   };
 
   // Update Account Balance
-  const handleUpdateAccountBalance = (accountId: string, newBalance: number) => {
+  const handleUpdateAccountBalance = (id: string, newBalance: number) => {
     setAccounts((prev) =>
-      prev.map((acc) => (acc.id === accountId ? { ...acc, balance: newBalance } : acc))
+      prev.map((acc) => (acc.id === id ? { ...acc, balance: newBalance } : acc))
     );
   };
 
   // Delete Account
-  const handleDeleteAccount = (accountId: string) => {
-    setAccounts((prev) => prev.filter((acc) => acc.id !== accountId));
+  const handleDeleteAccount = (id: string) => {
+    setAccounts((prev) => prev.filter((acc) => acc.id !== id));
+    setSelectedAccount(null);
   };
 
-  // Add Category
+  // Add new Category Mapping
   const handleSaveCategory = (newCatData: Omit<CategoryMapping, 'id'>) => {
     const newId = `cat-${Date.now()}`;
     const newCat: CategoryMapping = {
@@ -342,6 +415,8 @@ if (typeof window !== 'undefined') {
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onAvatarClick={() => handleTabChange('profil')}
         onBack={() => handleTabChange(prevTab || 'home')}
+        onOpenOCR={() => setIsOCROpen(true)}
+        onOpenVoice={() => setIsVoiceOpen(true)}
       />
 
       {/* View Switcher with bottom padding on mobile so content is never cut off by the bottom navbar */}
@@ -355,6 +430,8 @@ if (typeof window !== 'undefined') {
               onNavigate={handleTabChange}
               onSelectTransaction={(tx) => setSelectedTransaction(tx)}
               onOpenAddTransaction={() => handleTabChange('tambah')}
+              onOpenOCR={() => setIsOCROpen(true)}
+              onOpenVoice={() => setIsVoiceOpen(true)}
             />
           )}
 
@@ -389,6 +466,31 @@ if (typeof window !== 'undefined') {
 
       {/* Mobile Bottom Navigation Bar */}
       <BottomNavBar currentTab={currentTab} onChangeTab={handleTabChange} />
+
+      {/* Root Level Smart Input Modals - Accessible from Home, TopBar, and Tambah Views */}
+      {isOCROpen && (
+        <OCRScanModal
+          isOpen={isOCROpen}
+          onClose={() => setIsOCROpen(false)}
+          onApplyData={(scanned) => {
+            setIsOCROpen(false);
+            handleTabChange('tambah');
+          }}
+          onDirectSave={handleDirectSaveScanned}
+        />
+      )}
+
+      {isVoiceOpen && (
+        <VoiceInputModal
+          isOpen={isVoiceOpen}
+          onClose={() => setIsVoiceOpen(false)}
+          onApplyData={(parsed) => {
+            setIsVoiceOpen(false);
+            handleTabChange('tambah');
+          }}
+          onDirectSave={handleDirectSaveVoice}
+        />
+      )}
 
       {/* Modals & Drawers */}
       <ModalAddAccount
@@ -455,4 +557,3 @@ if (typeof window !== 'undefined') {
     </div>
   );
 }
-

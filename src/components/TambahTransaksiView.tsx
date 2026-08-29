@@ -3,7 +3,7 @@ import { TRANSACTION_CATEGORIES } from '../data/initialData';
 import { Account, Transaction } from '../types';
 import { OCRScanModal } from './OCRScanModal';
 import { VoiceInputModal } from './VoiceInputModal';
-import { Camera, Volume2, Sparkles } from 'lucide-react';
+import { Camera, Volume2 } from 'lucide-react';
 
 interface TambahTransaksiViewProps {
   accounts: Account[];
@@ -198,30 +198,35 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
 
       {/* Main Left Column: Amount + Numpad + Categories */}
       <div className="md:col-span-7 flex flex-col gap-6">
-        {/* Smart Input Quick Bar (OCR & Voice) */}
-        <div className="flex items-center justify-between gap-3 bg-[#ffffff] p-3 rounded-[20px] shadow-[0px_4px_12px_rgba(0,0,0,0.02)] border border-neutral-100">
-          <div className="flex items-center gap-2 pl-2">
-            <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
-            <span className="text-xs font-bold text-neutral-800">Smart Input Cepat</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsOCROpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs flex items-center gap-1.5 border border-emerald-200/60 transition-colors cursor-pointer"
-            >
-              <Camera className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Scan Struk</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsVoiceOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-semibold text-xs flex items-center gap-1.5 border border-purple-200/60 transition-colors cursor-pointer"
-            >
-              <Volume2 className="w-3.5 h-3.5 text-purple-600" />
-              <span>Input Suara</span>
-            </button>
-          </div>
+        {/* Smart Input Prominent Action Cards (OCR & Voice) */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setIsOCROpen(true)}
+            className="p-3.5 rounded-2xl bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-200 flex items-center justify-center gap-2.5 text-emerald-950 font-bold text-xs shadow-sm transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
+              <Camera className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-xs leading-tight">Scan Struk</p>
+              <p className="text-[10px] text-emerald-700 font-medium">Kamera / Galeri</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsVoiceOpen(true)}
+            className="p-3.5 rounded-2xl bg-purple-50/90 hover:bg-purple-100/90 border border-purple-200 flex items-center justify-center gap-2.5 text-purple-950 font-bold text-xs shadow-sm transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-sm shrink-0">
+              <Volume2 className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-xs leading-tight">Input Suara</p>
+              <p className="text-[10px] text-purple-700 font-medium">Bicara nominal</p>
+            </div>
+          </button>
         </div>
 
         {/* Amount Input Area */}
