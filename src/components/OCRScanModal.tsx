@@ -12,6 +12,7 @@ import {
   VideoOff,
   ChevronDown,
   ChevronUp,
+  Tag,
 } from 'lucide-react';
 import { performReceiptOCR, parseReceiptText } from '../utils/receiptParser';
 import { TRANSACTION_CATEGORIES } from '../data/initialData';
@@ -37,7 +38,7 @@ TGL: 28/08/2026 14:20
 1x CHIPS POTATO     12.000
 
 SUBTOTAL:           45.000
-TOTAL:           Rp 45.000
+TOTAL BELANJA:   Rp 45.000
 BAYAR (TUNAI):   Rp 50.000
 KEMBALI:          Rp 5.000`,
   },
@@ -52,6 +53,7 @@ DATE: 2026-08-28 16:45
 
 1x CARAMEL MACCHIATO GRANDE   68.000
 
+SUBTOTAL:                  Rp 68.000
 GRAND TOTAL:               Rp 68.000
 BCA DEBIT:                 Rp 68.000
 TERIMA KASIH ATAS KUNJUNGAN ANDA`,
@@ -70,7 +72,8 @@ LITER:  11.20 L
 HARGA:  Rp 13.400 / L
 
 TOTAL BAYAR:             Rp 150.000
-CASH:                    Rp 150.000`,
+TUNAI:                   Rp 200.000
+KEMBALIAN:                Rp 50.000`,
   },
 ];
 
@@ -87,6 +90,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   const [categoryInput, setCategoryInput] = useState('Makan');
   const [dateInput, setDateInput] = useState(new Date().toISOString().slice(0, 10));
   const [rawOcrText, setRawOcrText] = useState('');
+  const [candidateAmounts, setCandidateAmounts] = useState<number[]>([]);
   const [showRawText, setShowRawText] = useState(false);
   const [confidence, setConfidence] = useState(0);
 
@@ -112,7 +116,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
 
   if (!isOpen) return null;
 
-  // Process OCR using Tesseract worker
+  // Process OCR using enhanced engine
   const processImageOCR = async (source: File | Blob | string) => {
     setIsScanning(true);
     setProgressPct(10);
@@ -130,6 +134,9 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
       setDateInput(result.date);
       setRawOcrText(result.rawText);
       setConfidence(result.confidence);
+      if (result.candidateAmounts && result.candidateAmounts.length > 0) {
+        setCandidateAmounts(result.candidateAmounts);
+      }
     } catch (err: any) {
       console.warn('OCR error, using smart fallback parser:', err);
       const fallbackResult = parseReceiptText(
@@ -173,10 +180,11 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
       setCategoryInput(mock.category);
       setDateInput(parsed.date);
       setRawOcrText(mock.rawText);
-      setConfidence(96);
+      setConfidence(98);
+      if (parsed.candidateAmounts) setCandidateAmounts(parsed.candidateAmounts);
       setIsScanning(false);
       setProgressPct(100);
-    }, 400);
+    }, 300);
   };
 
   // Live Camera Controls
@@ -235,6 +243,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   };
 
   const hasResult = Boolean(merchantInput && amountInput);
+  const currentNum = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
@@ -246,8 +255,8 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
               <Camera className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Scan Struk Belanja (OCR)</h2>
-              <p className="text-xs text-neutral-500">Membaca merchant, tanggal & total nominal foto struk</p>
+              <h2 className="text-base font-bold text-neutral-900">Scan Struk Belanja (OCR Presisi)</h2>
+              <p className="text-xs text-neutral-500">Mendeteksi total belanja riil (bukan uang bayar / kembali)</p>
             </div>
           </div>
           <button
@@ -346,7 +355,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
           {/* Quick Preset Receipts */}
           <div>
             <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">
-              Atau Uji dengan Contoh Struk Cepat
+              Atau Uji dengan Contoh Struk
             </p>
             <div className="grid grid-cols-3 gap-2">
               {MOCK_RECEIPTS.map((mock, idx) => (
@@ -397,6 +406,32 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
                   <span>Dapat diedit langsung</span>
                 </span>
               </div>
+
+              {/* Candidate Amounts Chips (One-Tap correction) */}
+              {candidateAmounts.length > 1 && (
+                <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-100 space-y-1.5">
+                  <p className="text-[10px] font-bold text-neutral-600 flex items-center gap-1">
+                    <Tag className="w-3 h-3 text-emerald-600" />
+                    <span>Pilihan Nominal Terdeteksi (Tap untuk Ganti):</span>
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {candidateAmounts.map((amt, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setAmountInput(amt.toString())}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          currentNum === amt
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-neutral-100 hover:bg-emerald-100 text-neutral-800'
+                        }`}
+                      >
+                        Rp {amt.toLocaleString('id-ID')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Editable Fields Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
