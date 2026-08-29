@@ -144,63 +144,85 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <h3 className="text-lg font-bold text-[#1a1c1b] tracking-tight">
             Transaksi Terbaru
           </h3>
-          <button
-            id="btn-lihat-semua-tx"
-            onClick={() => onNavigate('laporan')}
-            className="text-xs font-semibold text-[#406651] hover:underline cursor-pointer transition-colors"
-          >
-            Lihat Semua
-          </button>
+          {transactions.length > 0 && (
+            <button
+              id="btn-lihat-semua-tx"
+              onClick={() => onNavigate('laporan')}
+              className="text-xs font-semibold text-[#406651] hover:underline cursor-pointer transition-colors"
+            >
+              Lihat Semua
+            </button>
+          )}
         </div>
 
         <div className="bg-[#ffffff] rounded-[24px] p-2 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] flex flex-col divide-y divide-[#f4f4f2]">
-          {transactions.slice(0, 6).map((tx) => {
-            const isExpense = tx.type === 'expense';
-            return (
-              <div
-                key={tx.id}
-                id={`tx-row-${tx.id}`}
-                onClick={() => onSelectTransaction(tx)}
-                className="flex items-center justify-between p-3.5 rounded-2xl hover:bg-[#f9f9f7] transition-all duration-200 cursor-pointer group"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${tx.categoryBgClass}`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {tx.categoryIcon}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-[#1a1c1b] group-hover:text-[#406651] transition-colors">
-                      {tx.title}
-                    </p>
-                    <p className="text-xs text-[#717973] mt-0.5">
-                      {tx.timeStr || tx.date}
-                      {tx.note && ` • ${tx.note}`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <p
-                    className={`text-sm font-bold tracking-tight ${
-                      isExpense ? 'text-[#ba1a1a]' : 'text-[#406651]'
-                    }`}
-                  >
-                    {isExpense
-                      ? `- ${formatRupiah(tx.amount)}`
-                      : `+ ${formatRupiah(tx.amount)}`}
-                  </p>
-                </div>
+          {transactions.length === 0 ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center gap-2.5">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[24px]">receipt_long</span>
               </div>
-            );
-          })}
+              <p className="text-sm font-bold text-neutral-800">Belum Ada Transaksi</p>
+              <p className="text-xs text-neutral-500 max-w-xs">
+                Transaksi yang Anda catat akan otomatis disimpan aman di perangkat lokal Anda.
+              </p>
+              <button
+                type="button"
+                onClick={onOpenAddTransaction}
+                className="mt-2 px-5 py-2.5 bg-[#406651] hover:bg-[#284e3a] text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>Catat Pengeluaran Pertama</span>
+              </button>
+            </div>
+          ) : (
+            transactions.slice(0, 6).map((tx) => {
+              const isExpense = tx.type === 'expense';
+              return (
+                <div
+                  key={tx.id}
+                  id={`tx-row-${tx.id}`}
+                  onClick={() => onSelectTransaction(tx)}
+                  className="flex items-center justify-between p-3.5 rounded-2xl hover:bg-[#f9f9f7] transition-all duration-200 cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${tx.categoryBgClass}`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {tx.categoryIcon}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#1a1c1b] group-hover:text-[#406651] transition-colors">
+                        {tx.title}
+                      </p>
+                      <p className="text-xs text-[#717973] mt-0.5">
+                        {tx.timeStr || tx.date}
+                        {tx.note && ` • ${tx.note}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p
+                      className={`text-sm font-bold tracking-tight ${
+                        isExpense ? 'text-[#ba1a1a]' : 'text-[#406651]'
+                      }`}
+                    >
+                      {isExpense
+                        ? `- ${formatRupiah(tx.amount)}`
+                        : `+ ${formatRupiah(tx.amount)}`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </section>
 
       {/* Quick Add floating banner on mobile */}
-      <div className="md:hidden pt-2 pb-6 flex justify-center">
+      <div className="md:hidden pt-2 pb-2 flex justify-center">
         <button
           id="btn-home-quick-add"
           onClick={onOpenAddTransaction}

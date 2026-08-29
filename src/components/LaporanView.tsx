@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import {
-  INITIAL_CATEGORY_SPENDING,
-  INITIAL_MONTHLY_TRENDS,
-  formatRupiah,
-} from '../data/initialData';
+import { formatRupiah } from '../data/initialData';
 import { Transaction } from '../types';
 
 interface LaporanViewProps {
@@ -11,18 +7,39 @@ interface LaporanViewProps {
 }
 
 export const LaporanView: React.FC<LaporanViewProps> = ({ transactions }) => {
-  const [activeTab, setActiveTab] = useState<
-    'ringkasan' | 'tren' | 'kategori'
-  >('ringkasan');
-  const [hoveredTrendMonth, setHoveredTrendMonth] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'ringkasan' | 'kategori'>('ringkasan');
 
-  // Compute total monthly spending from transactions if available
-  const totalExpense = transactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  // Compute total monthly spending & income from real transactions
+  const expenseTransactions = transactions.filter((t) => t.type === 'expense');
+  const incomeTransactions = transactions.filter((t) => t.type === 'income');
 
-  const displayTotalText =
-    totalExpense > 0 ? formatRupiah(totalExpense) : 'Rp 4.5Jt';
+  const totalExpense = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+  const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+  // Compute category breakdown dynamically
+  const categoryTotals: Record<string, { amount: number; count: number }> = {};
+  expenseTransactions.forEach((tx) => {
+    const cat = tx.categoryName || 'Lainnya';
+    if (!categoryTotals[cat]) {
+      categoryTotals[cat] = { amount: 0, count: 0 };
+    }
+    categoryTotals[cat].amount += tx.amount;
+    categoryTotals[cat].count += 1;
+  });
+
+  const categoryEntries = Object.entries(categoryTotals).map(([name, data]) => {
+    const percentage = totalExpense > 0 ? Math.round((data.amount / totalExpense) * 100) : 0;
+    let color = '#406651';
+    if (name.toLowerCase().includes('makan')) color = '#406651';
+    else if (name.toLowerCase().includes('transport')) color = '#3f627a';
+    else if (name.toLowerCase().includes('belanja')) color = '#685d4c';
+    else if (name.toLowerCase().includes('tagihan')) color = '#ba1a1a';
+    else if (name.toLowerCase().includes('hiburan')) color = '#a7cbe7';
+    return { name, amount: data.amount, percentage, count: data.count, color };
+  });
+
+  // Sort categories by highest spend
+  categoryEntries.sort((a, b) => b.amount - a.amount);
 
   return (
     <main
@@ -43,18 +60,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({ transactions }) => {
               : 'border-b-2 border-transparent text-[#717973] hover:text-[#1a1c1b]'
           }`}
         >
-          Ringkasan Bulan Ini
-        </button>
-        <button
-          id="tab-tren"
-          onClick={() => setActiveTab('tren')}
-          className={`pb-2.5 font-bold text-sm whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'tren'
-              ? 'border-b-2 border-[#406651] text-[#406651]'
-              : 'border-b-2 border-transparent text-[#717973] hover:text-[#1a1c1b]'
-          }`}
-        >
-          Tren 6 Bulan
+          Ringkasan Keuangan
         </button>
         <button
           id="tab-kategori-khusus"
@@ -65,7 +71,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({ transactions }) => {
               : 'border-b-2 border-transparent text-[#717973] hover:text-[#1a1c1b]'
           }`}
         >
-          Kategori Khusus
+          Rincian Kategori
         </button>
       </div>
 
@@ -80,290 +86,107 @@ export const LaporanView: React.FC<LaporanViewProps> = ({ transactions }) => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h3 className="text-base font-bold text-[#1a1c1b]">
-                Insight Cerdas
+                Insight Real-Time
               </h3>
               <span className="bg-[#c1edd1] text-[#002112] text-[10px] font-bold px-2 py-0.5 rounded-full">
-                AI Suggestion
+                Lokal Aktif
               </span>
             </div>
             <p className="text-sm text-[#414843] leading-relaxed">
-              Pengeluaran makanmu naik 15% minggu ini. Coba bawa bekal ya! Ini
-              bisa menghemat sekitar <strong>Rp 150.000,-</strong> per minggu.
+              {totalExpense === 0
+                ? 'Belum ada transaksi pengeluaran yang dicatat. Catat pengeluaran harian Anda agar Vaney dapat menghitung rasio anggaran!'
+                : `Total pengeluaran tercatat adalah ${formatRupiah(totalExpense)} dari ${expenseTransactions.length} transaksi.`}
             </p>
           </div>
         </div>
       </section>
 
-      {/* Main Grid: Donut Chart & Spline Line Chart */}
+      {/* Financial Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-[20px] shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-neutral-500">Total Pemasukan</p>
+            <p className="text-xl font-bold text-[#406651] mt-1">{formatRupiah(totalIncome)}</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span className="material-symbols-outlined">arrow_downward</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-[20px] shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-neutral-500">Total Pengeluaran</p>
+            <p className="text-xl font-bold text-[#ba1a1a] mt-1">{formatRupiah(totalExpense)}</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+            <span className="material-symbols-outlined">arrow_upward</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid: Breakdown & Donut */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Donut Chart Card (Current Month Spending) */}
+        {/* Category Breakdown Card */}
         <section
           id="card-donut-pengeluaran"
-          className="lg:col-span-5 bg-[#ffffff] rounded-[24px] p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between"
+          className="lg:col-span-12 bg-[#ffffff] rounded-[24px] p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between"
         >
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-[#1a1c1b]">Pengeluaran</h2>
+            <h2 className="text-lg font-bold text-[#1a1c1b]">Distribusi Pengeluaran Per Kategori</h2>
             <span className="text-xs font-semibold text-[#414843] bg-[#f4f4f2] px-3 py-1 rounded-full">
-              Bulan Ini
+              {expenseTransactions.length} Transaksi
             </span>
           </div>
 
-          {/* SVG Donut Chart */}
-          <div className="relative flex-grow flex items-center justify-center min-h-[220px] my-2">
-            <svg
-              className="w-52 h-52 transform -rotate-90"
-              viewBox="0 0 100 100"
-            >
-              {/* Background ring */}
-              <circle
-                cx="50"
-                cy="50"
-                r="38"
-                fill="none"
-                className="stroke-[#e8e8e6]"
-                strokeWidth="11"
-              />
-              {/* Makanan 45% -> 2*PI*38 = 238.76. 45% is 107.44 */}
-              <circle
-                cx="50"
-                cy="50"
-                r="38"
-                fill="none"
-                className="stroke-[#406651] transition-all duration-700"
-                strokeWidth="11"
-                strokeDasharray="238.76"
-                strokeDashoffset={238.76 * 0.55}
-                strokeLinecap="round"
-              />
-              {/* Transportasi 25% -> rotated */}
-              <circle
-                cx="50"
-                cy="50"
-                r="38"
-                fill="none"
-                className="stroke-[#3f627a] transition-all duration-700"
-                strokeWidth="11"
-                strokeDasharray="238.76"
-                strokeDashoffset={238.76 * 0.75}
-                strokeLinecap="round"
-                transform="rotate(162 50 50)"
-              />
-              {/* Hiburan 15% */}
-              <circle
-                cx="50"
-                cy="50"
-                r="38"
-                fill="none"
-                className="stroke-[#a99b88] transition-all duration-700"
-                strokeWidth="11"
-                strokeDasharray="238.76"
-                strokeDashoffset={238.76 * 0.85}
-                strokeLinecap="round"
-                transform="rotate(252 50 50)"
-              />
-            </svg>
-
-            {/* Donut Center Label */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-xs font-semibold text-[#717973]">
-                Total
-              </span>
-              <span className="text-xl font-bold text-[#1a1c1b] tracking-tight">
-                {displayTotalText}
-              </span>
+          {categoryEntries.length === 0 ? (
+            <div className="py-12 text-center text-neutral-500 text-xs">
+              Belum ada data pengeluaran untuk ditampilkan.
             </div>
-          </div>
-
-          {/* Legend Items */}
-          <div className="mt-4 space-y-2.5 pt-3 border-t border-[#f4f4f2]">
-            {INITIAL_CATEGORY_SPENDING.map((cat) => (
-              <div
-                key={cat.name}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <span className="font-medium text-[#414843]">
-                    {cat.name}
-                  </span>
+          ) : (
+            <div className="space-y-4">
+              {categoryEntries.map((cat) => (
+                <div key={cat.name} className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-neutral-800 flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                      {cat.name} ({cat.count}x)
+                    </span>
+                    <span className="text-neutral-900">{formatRupiah(cat.amount)} ({cat.percentage}%)</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-neutral-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.max(5, cat.percentage)}%`, backgroundColor: cat.color }}
+                    />
+                  </div>
                 </div>
-                <span className="font-bold text-[#1a1c1b]">
-                  {cat.percentage}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Line Chart Card (Income vs Expense Trend) */}
-        <section
-          id="card-line-tren-keuangan"
-          className="lg:col-span-7 bg-[#ffffff] rounded-[24px] p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-[#1a1c1b]">
-                Tren Keuangan
-              </h2>
-              <span className="text-xs font-semibold text-[#414843] bg-[#f4f4f2] px-3 py-1 rounded-full">
-                6 Bulan
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm bg-[#7da68d]" />
-                <span className="text-xs font-medium text-[#414843]">
-                  Pemasukan
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm bg-[#ffdad6] border border-[#ba1a1a]/30" />
-                <span className="text-xs font-medium text-[#414843]">
-                  Pengeluaran
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Spline Line Chart Canvas */}
-          <div className="w-full flex flex-col mt-2">
-            <div className="relative w-full h-52 border-b border-l border-[#e2e3e1]/60 flex items-end">
-              {/* Y-Axis labels */}
-              <div className="absolute -left-7 top-0 bottom-0 flex flex-col justify-between text-[10px] font-semibold text-[#717973] select-none">
-                <span>10Jt</span>
-                <span>5Jt</span>
-                <span>0</span>
-              </div>
-
-              <svg
-                className="w-full h-full overflow-visible"
-                viewBox="0 0 100 50"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <linearGradient
-                    id="pemasukanGrad"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor="#7da68d" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#7da68d" stopOpacity="0.0" />
-                  </linearGradient>
-                  <linearGradient
-                    id="pengeluaranGrad"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor="#ffdad6" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#ffdad6" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Pemasukan Area Gradient */}
-                <path
-                  d="M0,18 C15,18 20,24 35,24 C50,24 55,14 70,14 C85,14 90,8 100,8 L100,50 L0,50 Z"
-                  fill="url(#pemasukanGrad)"
-                />
-
-                {/* Pemasukan Line (Smoothed Spline) */}
-                <path
-                  d="M0,18 C15,18 20,24 35,24 C50,24 55,14 70,14 C85,14 90,8 100,8"
-                  fill="none"
-                  stroke="#406651"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Pengeluaran Line (Smoothed Spline) */}
-                <path
-                  d="M0,38 C15,38 20,32 35,32 C50,32 55,42 70,42 C85,42 90,28 100,28"
-                  fill="none"
-                  stroke="#ba1a1a"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeDasharray="4 2"
-                />
-              </svg>
-            </div>
-
-            {/* X-Axis Month Labels */}
-            <div className="flex justify-between w-full mt-2 px-1">
-              {INITIAL_MONTHLY_TRENDS.map((item) => (
-                <button
-                  key={item.month}
-                  onMouseEnter={() => setHoveredTrendMonth(item.month)}
-                  onMouseLeave={() => setHoveredTrendMonth(null)}
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${
-                    hoveredTrendMonth === item.month
-                      ? 'bg-[#c1edd1] text-[#002112]'
-                      : 'text-[#717973] hover:text-[#1a1c1b]'
-                  }`}
-                >
-                  {item.month}
-                </button>
               ))}
             </div>
-
-            {/* Interactive Trend tooltip */}
-            {hoveredTrendMonth && (
-              <div className="mt-3 p-3 bg-[#f4f4f2] rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-200">
-                <span className="font-bold text-[#1a1c1b]">
-                  Bulan {hoveredTrendMonth}
-                </span>
-                <div className="flex gap-4">
-                  <span className="text-[#406651] font-semibold">
-                    Masuk: Rp 8.900.000
-                  </span>
-                  <span className="text-[#ba1a1a] font-semibold">
-                    Keluar: Rp 4.500.000
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </section>
       </div>
 
-      {/* Extra Detail for Kategori Khusus or Tab Switch */}
+      {/* Extra Detail for Kategori Khusus */}
       {activeTab === 'kategori' && (
         <section className="bg-[#ffffff] rounded-[24px] p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] animate-in fade-in duration-200">
           <h3 className="text-base font-bold text-[#1a1c1b] mb-4">
-            Rincian Kategori Khusus
+            Semua Kategori & Nominal
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-[#f9f9f7] rounded-2xl flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-[#1a1c1b]">
-                  Makanan & Kopi Harian
-                </p>
-                <p className="text-xs text-[#717973]">
-                  Rata-rata Rp 45.000/hari
-                </p>
-              </div>
-              <span className="text-sm font-bold text-[#406651]">
-                Rp 1.350.000
-              </span>
+          {categoryEntries.length === 0 ? (
+            <p className="text-xs text-neutral-500">Belum ada kategori dengan transaksi.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {categoryEntries.map((c) => (
+                <div key={c.name} className="p-4 bg-[#f9f9f7] rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-[#1a1c1b]">{c.name}</p>
+                    <p className="text-xs text-[#717973]">{c.count} Transaksi dicatat</p>
+                  </div>
+                  <span className="text-sm font-bold text-[#406651]">{formatRupiah(c.amount)}</span>
+                </div>
+              ))}
             </div>
-            <div className="p-4 bg-[#f9f9f7] rounded-2xl flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-[#1a1c1b]">
-                  Langganan & Hiburan
-                </p>
-                <p className="text-xs text-[#717973]">Netflix, Spotify, Bioskop</p>
-              </div>
-              <span className="text-sm font-bold text-[#3f627a]">
-                Rp 450.000
-              </span>
-            </div>
-          </div>
+          )}
         </section>
       )}
     </main>

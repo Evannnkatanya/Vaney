@@ -8,7 +8,6 @@ import {
   AlertCircle,
   FileText,
   Edit3,
-  Video,
   VideoOff,
   ChevronDown,
   ChevronUp,
@@ -23,60 +22,6 @@ interface OCRScanModalProps {
   onClose: () => void;
   onApplyData: (data: { merchant: string; amount: number; category: string; date?: string }) => void;
 }
-
-const MOCK_RECEIPTS = [
-  {
-    name: 'Indomaret Point',
-    merchant: 'Indomaret Point',
-    amount: 45000,
-    category: 'Belanja',
-    rawText: `INDOMARET POINT DIPONEGORO
-JL. DIPONEGORO NO. 45
-TGL: 28/08/2026 14:20
-
-1x KOPI BOTTLE      18.000
-1x ROTI SOBEK       15.000
-1x CHIPS POTATO     12.000
-
-SUBTOTAL:           45.000
-TOTAL BELANJA:   Rp 45.000
-BAYAR (TUNAI):   Rp 50.000
-KEMBALI:          Rp 5.000`,
-  },
-  {
-    name: 'Starbucks Coffee',
-    merchant: 'Starbucks Coffee',
-    amount: 68000,
-    category: 'Makan',
-    rawText: `STARBUCKS COFFEE GRAND INDONESIA
-RECEIPT #84920
-DATE: 2026-08-28 16:45
-
-1x CARAMEL MACCHIATO GRANDE   68.000
-
-SUBTOTAL:                  Rp 68.000
-GRAND TOTAL:               Rp 68.000
-BCA DEBIT:                 Rp 68.000
-TERIMA KASIH ATAS KUNJUNGAN ANDA`,
-  },
-  {
-    name: 'SPBU Pertamina',
-    merchant: 'SPBU Pertamina',
-    amount: 150000,
-    category: 'Transport',
-    rawText: `SPBU PERTAMINA 34.12304
-JL. GATOT SUBROTO
-TANGGAL: 27-08-2026 09:12
-
-PRODUK: PERTAMAX (RON 92)
-LITER:  11.20 L
-HARGA:  Rp 13.400 / L
-
-TOTAL BAYAR:             Rp 150.000
-TUNAI:                   Rp 200.000
-KEMBALIAN:                Rp 50.000`,
-  },
-];
 
 export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -148,10 +93,10 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
     } catch (err: any) {
       console.warn('OCR error, using smart fallback parser:', err);
       const fallbackResult = parseReceiptText(
-        typeof source === 'string' ? source : 'Struk Belanja\nTotal: Rp 50.000\nTanggal: ' + new Date().toISOString()
+        typeof source === 'string' ? source : 'Struk Belanja\nTotal: Rp 0\nTanggal: ' + new Date().toISOString()
       );
       setMerchantInput(fallbackResult.merchant);
-      setAmountInput(fallbackResult.amount.toString());
+      setAmountInput(fallbackResult.amount ? fallbackResult.amount.toString() : '');
       setCategoryInput(fallbackResult.category);
       setRawOcrText(fallbackResult.rawText);
       setConfidence(85);
@@ -173,74 +118,11 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
     await processImageOCR(file);
   };
 
-  // Mock Receipt selection for quick testing
-  const handleSelectMock = (mock: (typeof MOCK_RECEIPTS)[0]) => {
-    stopCamera();
-    setImagePreview(null);
-    setIsScanning(true);
-    setProgressPct(30);
-    setProgressMsg('Mengekstrak data struk...');
-
-    setTimeout(() => {
-      const parsed = parseReceiptText(mock.rawText);
-      setMerchantInput(parsed.merchant || mock.merchant);
-      setAmountInput(parsed.amount ? parsed.amount.toString() : mock.amount.toString());
-      setCategoryInput(mock.category);
-      setDateInput(parsed.date);
-      setRawOcrText(mock.rawText);
-      setConfidence(98);
-      if (parsed.candidateAmounts) setCandidateAmounts(parsed.candidateAmounts);
-      setIsScanning(false);
-      setProgressPct(100);
-    }, 300);
-  };
-
   // Trigger Native Android/Mobile Camera Directly (100% Reliable across all Android devices)
   const triggerNativeCamera = () => {
     stopCamera();
     if (nativeCameraInputRef.current) {
       nativeCameraInputRef.current.click();
-    }
-  };
-
-  // Live Inline Camera Stream Controls with multi-constraint fallback
-  const startCamera = async () => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      // Fallback directly to native mobile camera capture
-      triggerNativeCamera();
-      return;
-    }
-
-    try {
-      let stream: MediaStream;
-      try {
-        // Try back environment camera
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false,
-        });
-      } catch (e) {
-        // Fallback to any video camera
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
-      }
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        try {
-          await videoRef.current.play();
-        } catch (playErr) {
-          console.warn('Video play error:', playErr);
-        }
-      }
-      setIsCameraActive(true);
-      setErrorMsg(null);
-    } catch (err: any) {
-      console.warn('getUserMedia error, triggering native camera:', err);
-      triggerNativeCamera();
     }
   };
 
@@ -267,7 +149,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   const handleConfirm = () => {
     const finalAmount = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
     if (!merchantInput.trim() || finalAmount <= 0) {
-      alert('Mohon periksa kembali nama merchant dan nominal total.');
+      alert('Mohon periksa kembali nama toko dan nominal total.');
       return;
     }
 
@@ -405,28 +287,6 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
               </button>
             </div>
           )}
-
-          {/* Quick Preset Receipts */}
-          <div>
-            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">
-              Atau Uji Contoh Cepat
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {MOCK_RECEIPTS.map((mock, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSelectMock(mock)}
-                  className="p-2.5 rounded-xl border border-neutral-200 hover:border-emerald-500 hover:bg-emerald-50/40 text-left transition-all cursor-pointer"
-                >
-                  <p className="font-bold text-neutral-800 truncate text-[11px]">{mock.name}</p>
-                  <p className="text-emerald-700 font-semibold mt-0.5 text-[10px]">
-                    Rp {mock.amount.toLocaleString('id-ID')}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* OCR Scanning Progress */}
           {isScanning && (

@@ -316,12 +316,12 @@ export default function App() {
         onBack={() => handleTabChange(prevTab || 'home')}
       />
 
-      {/* View Switcher */}
-      <div className="flex-1 w-full">
+      {/* View Switcher with bottom padding on mobile so content is never cut off by the bottom navbar */}
+      <div className="flex-1 w-full pb-32 md:pb-8">
         <ErrorBoundary onReset={() => handleTabChange('home')}>
           {currentTab === 'home' && (
             <HomeView
-              totalBalance={homeTotalBalance > 0 ? homeTotalBalance : 15450000}
+              totalBalance={homeTotalBalance}
               pots={budgetPots}
               transactions={transactions}
               onNavigate={handleTabChange}
