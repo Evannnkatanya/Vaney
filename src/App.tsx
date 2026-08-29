@@ -363,6 +363,8 @@ export default function App() {
           {currentTab === 'jatah' && (
             <JatahView
               categories={categoryMappings}
+              budgetPots={budgetPots}
+              onUpdateBudgetPots={(newPots) => setBudgetPots(newPots)}
               onOpenAddCategory={() => setIsAddCategoryOpen(true)}
               onDeleteCategory={handleDeleteCategory}
             />
@@ -372,7 +374,7 @@ export default function App() {
             <TambahTransaksiView
               accounts={accounts}
               onSaveTransaction={handleSaveTransaction}
-              onCancel={() => handleTabChange(prevTab || 'home')}
+              onCancel={() => handleTabChange('home')}
             />
           )}
 
