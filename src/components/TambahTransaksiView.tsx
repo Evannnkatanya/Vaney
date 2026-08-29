@@ -208,18 +208,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
       )}
 
       {/* Main Left Column: Amount + Numpad + Categories */}
-      <div className="md:col-span-7 flex flex-col gap-5">
-        {/* Top Direct Save Button (Always visible at the very top on Mobile Android & Desktop) */}
-        <button
-          id="btn-top-save-tx"
-          type="button"
-          onClick={handleSubmit}
-          className="w-full bg-[#406651] hover:bg-[#284e3a] text-[#ffffff] font-bold text-sm sm:text-base py-3.5 px-4 rounded-[18px] flex items-center justify-center gap-2 shadow-[0px_8px_20px_rgba(64,102,81,0.25)] hover:scale-[1.01] active:scale-98 transition-all cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[20px]">check_circle</span>
-          <span>Simpan Transaksi</span>
-        </button>
-
+      <div className="md:col-span-7 flex flex-col gap-6">
         {/* Smart Input Prominent Action Cards (OCR & Voice) */}
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -465,6 +454,16 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
             </div>
           </div>
         </section>
+
+        {/* Save Button */}
+        <button
+          id="btn-submit-save-tx"
+          type="button"
+          onClick={handleSubmit}
+          className="w-full bg-[#406651] hover:bg-[#284e3a] text-[#ffffff] font-bold text-base py-4 rounded-[18px] hover:scale-[1.01] active:scale-98 transition-all shadow-[0px_15px_40px_rgba(64,102,81,0.25)] cursor-pointer mt-auto"
+        >
+          Simpan Transaksi
+        </button>
       </div>
 
       {/* Smart Input Modals */}
