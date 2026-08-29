@@ -63,15 +63,16 @@ export const ModalAddCategory: React.FC<ModalAddCategoryProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#ffffff] rounded-[24px] max-w-md w-full p-6 shadow-[0px_15px_40px_rgba(0,0,0,0.12)] animate-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center mb-5">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-[#ffffff] rounded-t-[32px] sm:rounded-[24px] max-w-md w-full p-6 shadow-[0px_15px_40px_rgba(0,0,0,0.12)] animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200 max-h-[90dvh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-5 sticky top-0 bg-white z-10">
           <h3 className="text-lg font-bold text-[#1a1c1b]">
             Tambah Kategori Baru
           </h3>
           <button
+            type="button"
             onClick={onClose}
-            className="text-[#717973] hover:text-[#1a1c1b] p-1 rounded-full hover:bg-[#f4f4f2] transition-colors cursor-pointer"
+            className="text-[#717973] hover:text-[#1a1c1b] p-1.5 rounded-full hover:bg-[#f4f4f2] transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>

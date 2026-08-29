@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
+  Smartphone,
 } from 'lucide-react';
 import { performReceiptOCR, parseReceiptText } from '../utils/receiptParser';
 import { TRANSACTION_CATEGORIES } from '../data/initialData';
@@ -94,15 +95,22 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   const [showRawText, setShowRawText] = useState(false);
   const [confidence, setConfidence] = useState(0);
 
-  // Camera stream state
+  // Camera state
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const nativeCameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {
+          // ignore
+        }
+      });
       streamRef.current = null;
     }
     setIsCameraActive(false);
@@ -187,22 +195,52 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
     }, 300);
   };
 
-  // Live Camera Controls
+  // Trigger Native Android/Mobile Camera Directly (100% Reliable across all Android devices)
+  const triggerNativeCamera = () => {
+    stopCamera();
+    if (nativeCameraInputRef.current) {
+      nativeCameraInputRef.current.click();
+    }
+  };
+
+  // Live Inline Camera Stream Controls with multi-constraint fallback
   const startCamera = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      // Fallback directly to native mobile camera capture
+      triggerNativeCamera();
+      return;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
+      let stream: MediaStream;
+      try {
+        // Try back environment camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+      } catch (e) {
+        // Fallback to any video camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn('Video play error:', playErr);
+        }
       }
       setIsCameraActive(true);
       setErrorMsg(null);
     } catch (err: any) {
-      setErrorMsg('Gagal mengakses kamera. Pastikan izin kamera aktif.');
-      setIsCameraActive(false);
+      console.warn('getUserMedia error, triggering native camera:', err);
+      triggerNativeCamera();
     }
   };
 
@@ -246,30 +284,40 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   const currentNum = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-scale-up border border-neutral-100 flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+      {/* Hidden Native Camera Input with capture="environment" for 100% Android/iOS camera compatibility */}
+      <input
+        ref={nativeCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      <div className="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200 border border-neutral-100 flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-[#f9f9f7]">
+        <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between bg-[#f9f9f7] shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
               <Camera className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Scan Struk Belanja (OCR Presisi)</h2>
-              <p className="text-xs text-neutral-500">Mendeteksi total belanja riil (bukan uang bayar / kembali)</p>
+              <h2 className="text-base font-bold text-neutral-900">Scan Struk Belanja (OCR)</h2>
+              <p className="text-[11px] text-neutral-500">Mendeteksi total belanja riil otomatis</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-neutral-200/60 text-neutral-500 transition-colors cursor-pointer"
+            className="p-2 rounded-full hover:bg-neutral-200/60 text-neutral-500 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+        {/* Content Body - Fully Scrollable */}
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs overscroll-contain">
           {/* Error Banner */}
           {errorMsg && (
             <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-2 font-medium">
@@ -280,8 +328,14 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
 
           {/* Camera / Upload Section */}
           {isCameraActive ? (
-            <div className="relative rounded-2xl overflow-hidden bg-black flex flex-col items-center justify-center min-h-[240px]">
-              <video ref={videoRef} autoPlay playsInline className="w-full h-56 object-cover" />
+            <div className="relative rounded-2xl overflow-hidden bg-black flex flex-col items-center justify-center min-h-[220px]">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-56 object-cover"
+              />
               <canvas ref={canvasRef} className="hidden" />
               <div className="absolute bottom-3 flex items-center gap-3">
                 <button
@@ -303,43 +357,43 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {/* File Upload Button */}
-              <div className="relative border-2 border-dashed border-neutral-300 hover:border-emerald-500 rounded-2xl p-5 text-center transition-colors bg-neutral-50/50 flex flex-col items-center justify-center gap-2 cursor-pointer group">
+              {/* Native Mobile Camera Button (100% Android/iOS compatible) */}
+              <button
+                type="button"
+                onClick={triggerNativeCamera}
+                className="border-2 border-emerald-500/80 bg-emerald-50/50 hover:bg-emerald-100/50 rounded-2xl p-4 text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer group shadow-sm"
+              >
+                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-md">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-emerald-950 text-xs">Foto dengan Kamera</p>
+                  <p className="text-[10px] text-emerald-700">Buka kamera HP langsung</p>
+                </div>
+              </button>
+
+              {/* File Upload Button from Gallery */}
+              <div className="relative border-2 border-dashed border-neutral-300 hover:border-emerald-500 rounded-2xl p-4 text-center transition-colors bg-neutral-50/70 flex flex-col items-center justify-center gap-1.5 cursor-pointer group">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleFileChange}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
-                <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-full bg-neutral-200/80 text-neutral-700 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Upload className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-bold text-neutral-800">Unggah Gambar Struk</p>
-                  <p className="text-[10px] text-neutral-400">Pilih foto struk belanja</p>
+                  <p className="font-bold text-neutral-800 text-xs">Pilih dari Galeri</p>
+                  <p className="text-[10px] text-neutral-500">Unggah foto struk</p>
                 </div>
               </div>
-
-              {/* Camera Trigger Button */}
-              <button
-                type="button"
-                onClick={startCamera}
-                className="border-2 border-neutral-200 hover:border-emerald-500 hover:bg-emerald-50/30 rounded-2xl p-5 text-center transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group"
-              >
-                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Video className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-bold text-neutral-800">Buka Kamera HP</p>
-                  <p className="text-[10px] text-neutral-400">Foto struk secara langsung</p>
-                </div>
-              </button>
             </div>
           )}
 
           {/* Image Preview */}
           {imagePreview && !isCameraActive && (
-            <div className="relative rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 flex items-center justify-center h-36">
+            <div className="relative rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 flex items-center justify-center h-32">
               <img src={imagePreview} alt="Preview Struk" className="h-full object-contain" />
               <button
                 type="button"
@@ -354,8 +408,8 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
 
           {/* Quick Preset Receipts */}
           <div>
-            <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">
-              Atau Uji dengan Contoh Struk
+            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">
+              Atau Uji Contoh Cepat
             </p>
             <div className="grid grid-cols-3 gap-2">
               {MOCK_RECEIPTS.map((mock, idx) => (
@@ -403,11 +457,11 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
                 </span>
                 <span className="text-[10px] font-semibold text-neutral-500 flex items-center gap-1">
                   <Edit3 className="w-3 h-3" />
-                  <span>Dapat diedit langsung</span>
+                  <span>Bisa diedit</span>
                 </span>
               </div>
 
-              {/* Candidate Amounts Chips (One-Tap correction) */}
+              {/* Candidate Amounts Chips */}
               {candidateAmounts.length > 1 && (
                 <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-100 space-y-1.5">
                   <p className="text-[10px] font-bold text-neutral-600 flex items-center gap-1">
@@ -516,8 +570,8 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
           )}
         </div>
 
-        {/* Footer Buttons */}
-        <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex items-center justify-end gap-2">
+        {/* Footer Buttons - Fixed Bottom */}
+        <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex items-center justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}

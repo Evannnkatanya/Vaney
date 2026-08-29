@@ -107,7 +107,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
   return (
     <main
       id="tambah-transaksi-canvas"
-      className="px-5 pt-2 pb-12 max-w-[1140px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in duration-300 relative"
+      className="px-5 pt-2 pb-36 max-w-[1140px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in duration-300 relative overflow-y-auto"
     >
       {/* Toast Notification */}
       {showSuccessToast && (
