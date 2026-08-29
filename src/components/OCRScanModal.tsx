@@ -32,8 +32,8 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
   const [progressPct, setProgressPct] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Parsed and editable state
-  const [merchantInput, setMerchantInput] = useState('');
+  // Parsed and editable state - initialized with safe defaults
+  const [merchantInput, setMerchantInput] = useState('Struk Belanja');
   const [amountInput, setAmountInput] = useState<string>('');
   const [categoryInput, setCategoryInput] = useState('Makan');
   const [dateInput, setDateInput] = useState(new Date().toISOString().slice(0, 10));
@@ -83,10 +83,10 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
         setProgressMsg(status);
       });
 
-      setMerchantInput(result.merchant);
-      setAmountInput(result.amount.toString());
-      setCategoryInput(result.category);
-      setDateInput(result.date);
+      if (result.merchant) setMerchantInput(result.merchant);
+      if (result.amount > 0) setAmountInput(result.amount.toString());
+      if (result.category) setCategoryInput(result.category);
+      if (result.date) setDateInput(result.date);
       setRawOcrText(result.rawText);
       setConfidence(result.confidence);
       if (result.candidateAmounts && result.candidateAmounts.length > 0) {
@@ -97,11 +97,10 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
       const fallbackResult = parseReceiptText(
         typeof source === 'string' ? source : 'Struk Belanja\nTotal: Rp 0\nTanggal: ' + new Date().toISOString()
       );
-      setMerchantInput(fallbackResult.merchant);
-      setAmountInput(fallbackResult.amount ? fallbackResult.amount.toString() : '');
-      setCategoryInput(fallbackResult.category);
+      if (fallbackResult.merchant) setMerchantInput(fallbackResult.merchant);
+      if (fallbackResult.amount) setAmountInput(fallbackResult.amount.toString());
       setRawOcrText(fallbackResult.rawText);
-      setConfidence(85);
+      setConfidence(80);
     } finally {
       setIsScanning(false);
     }
@@ -150,13 +149,13 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
   // Apply parsed & edited data to transaction form
   const handleApplyToForm = () => {
     const finalAmount = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
-    if (!merchantInput.trim() || finalAmount <= 0) {
-      alert('Mohon periksa kembali nama toko dan nominal total.');
+    if (finalAmount <= 0) {
+      alert('Mohon masukkan nominal total pengeluaran.');
       return;
     }
 
     onApplyData({
-      merchant: merchantInput.trim(),
+      merchant: merchantInput.trim() || 'Struk Belanja',
       amount: finalAmount,
       category: categoryInput,
       date: dateInput,
@@ -167,13 +166,13 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
   // Direct Save to Transactions & Reports
   const handleDirectSave = () => {
     const finalAmount = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
-    if (!merchantInput.trim() || finalAmount <= 0) {
-      alert('Mohon periksa kembali nama toko dan nominal total.');
+    if (finalAmount <= 0) {
+      alert('Mohon masukkan nominal total pengeluaran.');
       return;
     }
 
     const payload = {
-      merchant: merchantInput.trim(),
+      merchant: merchantInput.trim() || 'Struk Belanja',
       amount: finalAmount,
       category: categoryInput,
       date: dateInput,
@@ -187,7 +186,6 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
     onClose();
   };
 
-  const hasResult = Boolean(merchantInput && amountInput);
   const currentNum = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
 
   return (
@@ -332,127 +330,127 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
             </div>
           )}
 
-          {/* Result Card with Live Editability */}
-          {hasResult && !isScanning && (
-            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Hasil Deteksi ({confidence}% Akurat)</span>
-                </span>
-                <span className="text-[10px] font-semibold text-neutral-500 flex items-center gap-1">
-                  <Edit3 className="w-3 h-3" />
-                  <span>Bisa diedit</span>
-                </span>
-              </div>
-
-              {/* Candidate Amounts Chips */}
-              {candidateAmounts.length > 1 && (
-                <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-100 space-y-1.5">
-                  <p className="text-[10px] font-bold text-neutral-600 flex items-center gap-1">
-                    <Tag className="w-3 h-3 text-emerald-600" />
-                    <span>Pilihan Nominal Terdeteksi (Tap untuk Ganti):</span>
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {candidateAmounts.map((amt, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setAmountInput(amt.toString())}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                          currentNum === amt
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'bg-neutral-100 hover:bg-emerald-100 text-neutral-800'
-                        }`}
-                      >
-                        Rp {amt.toLocaleString('id-ID')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Editable Fields Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {/* Merchant Input */}
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
-                    Nama Toko / Merchant
-                  </label>
-                  <input
-                    type="text"
-                    value={merchantInput}
-                    onChange={(e) => setMerchantInput(e.target.value)}
-                    className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-900 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-
-                {/* Amount Input */}
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
-                    Nominal Total (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    value={amountInput}
-                    onChange={(e) => setAmountInput(e.target.value)}
-                    className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-
-                {/* Category Picker */}
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
-                    Kategori Pengeluaran
-                  </label>
-                  <select
-                    value={categoryInput}
-                    onChange={(e) => setCategoryInput(e.target.value)}
-                    className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
-                  >
-                    {TRANSACTION_CATEGORIES.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Date Picker */}
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
-                    Tanggal Transaksi
-                  </label>
-                  <input
-                    type="date"
-                    value={dateInput}
-                    onChange={(e) => setDateInput(e.target.value)}
-                    className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Raw OCR Text Dropdown */}
-              {rawOcrText && (
-                <div className="pt-2 border-t border-emerald-200/60">
-                  <button
-                    type="button"
-                    onClick={() => setShowRawText(!showRawText)}
-                    className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Lihat Teks Asli Struk</span>
-                    {showRawText ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
-                  {showRawText && (
-                    <pre className="mt-2 p-2.5 rounded-xl bg-white border border-neutral-200 text-[10px] text-neutral-700 whitespace-pre-wrap font-mono max-h-28 overflow-y-auto">
-                      {rawOcrText}
-                    </pre>
-                  )}
-                </div>
-              )}
+          {/* Result Card with Live Editability - Always visible for editing */}
+          <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Rincian Transaksi Struk {confidence > 0 ? `(${confidence}% Akurat)` : ''}</span>
+              </span>
+              <span className="text-[10px] font-semibold text-neutral-500 flex items-center gap-1">
+                <Edit3 className="w-3 h-3" />
+                <span>Bisa diedit</span>
+              </span>
             </div>
-          )}
+
+            {/* Candidate Amounts Chips */}
+            {candidateAmounts.length > 1 && (
+              <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-100 space-y-1.5">
+                <p className="text-[10px] font-bold text-neutral-600 flex items-center gap-1">
+                  <Tag className="w-3 h-3 text-emerald-600" />
+                  <span>Pilihan Nominal Terdeteksi (Tap untuk Ganti):</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {candidateAmounts.map((amt, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setAmountInput(amt.toString())}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        currentNum === amt
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-neutral-100 hover:bg-emerald-100 text-neutral-800'
+                      }`}
+                    >
+                      Rp {amt.toLocaleString('id-ID')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Editable Fields Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Merchant Input */}
+              <div>
+                <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
+                  Nama Toko / Keterangan
+                </label>
+                <input
+                  type="text"
+                  value={merchantInput}
+                  onChange={(e) => setMerchantInput(e.target.value)}
+                  placeholder="Contoh: Indomaret / Kopi"
+                  className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+
+              {/* Amount Input */}
+              <div>
+                <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
+                  Nominal Total (Rp) *
+                </label>
+                <input
+                  type="number"
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  placeholder="Contoh: 50000"
+                  className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 outline-none placeholder:text-neutral-300"
+                />
+              </div>
+
+              {/* Category Picker */}
+              <div>
+                <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
+                  Kategori Pengeluaran
+                </label>
+                <select
+                  value={categoryInput}
+                  onChange={(e) => setCategoryInput(e.target.value)}
+                  className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
+                >
+                  {TRANSACTION_CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date Picker */}
+              <div>
+                <label className="text-[10px] font-bold text-neutral-600 uppercase block mb-1">
+                  Tanggal Transaksi
+                </label>
+                <input
+                  type="date"
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Raw OCR Text Dropdown */}
+            {rawOcrText && (
+              <div className="pt-2 border-t border-emerald-200/60">
+                <button
+                  type="button"
+                  onClick={() => setShowRawText(!showRawText)}
+                  className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Lihat Teks Asli Struk</span>
+                  {showRawText ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+                {showRawText && (
+                  <pre className="mt-2 p-2.5 rounded-xl bg-white border border-neutral-200 text-[10px] text-neutral-700 whitespace-pre-wrap font-mono max-h-28 overflow-y-auto">
+                    {rawOcrText}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer Buttons - Fixed Bottom with Direct Save CTA */}
@@ -469,7 +467,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
             <button
               type="button"
               onClick={handleApplyToForm}
-              disabled={!hasResult || isScanning}
+              disabled={isScanning}
               className="px-3.5 py-2.5 rounded-xl border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
             >
               Isi ke Formulir
@@ -477,7 +475,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
             <button
               type="button"
               onClick={handleDirectSave}
-              disabled={!hasResult || isScanning}
+              disabled={isScanning}
               className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer flex items-center gap-1.5"
             >
               <Save className="w-3.5 h-3.5" />

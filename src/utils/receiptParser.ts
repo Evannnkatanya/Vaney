@@ -472,29 +472,40 @@ export async function performReceiptOCR(
     if (onProgress) onProgress(25, 'Mengoptimalkan kontras & ketajaman gambar struk...');
     const optimizedImage = await preprocessImageForOCR(imageSource);
 
-    // 3. Dynamic import Tesseract.js
-    if (onProgress) onProgress(45, 'Memuat modul OCR Tesseract (Bahasa Indonesia)...');
+    // 3. Dynamic import Tesseract.js with safety timeout
+    if (onProgress) onProgress(45, 'Membaca karakter teks struk...');
     const tesseract = await import('tesseract.js');
     const createWorker = tesseract.createWorker;
 
-    const worker = await createWorker('ind+eng');
+    // Use Promise.race with 8s timeout to prevent hanging on mobile networks
+    const recognizePromise = (async () => {
+      const worker = await createWorker('eng');
+      const ret = await worker.recognize(optimizedImage);
+      await worker.terminate();
+      return ret.data.text;
+    })();
 
-    if (onProgress) onProgress(70, 'Membaca karakter & teks struk...');
-    const ret = await worker.recognize(optimizedImage);
+    const timeoutPromise = new Promise<string>((_, reject) =>
+      setTimeout(() => reject(new Error('OCR recognition timeout')), 8000)
+    );
 
-    if (onProgress) onProgress(90, 'Menghitung & memverifikasi nominal total belanja...');
-    const parsed = parseReceiptText(ret.data.text);
+    const rawText = await Promise.race([recognizePromise, timeoutPromise]);
+    if (onProgress) onProgress(90, 'Memverifikasi nominal total belanja...');
+    const parsed = parseReceiptText(rawText);
 
-    await worker.terminate();
     if (onProgress) onProgress(100, 'Selesai!');
-
     return parsed;
   } catch (err: any) {
-    console.warn('OCR processing error, using intelligent fallback parser:', err);
+    console.warn('OCR processing error / timeout, using fallback:', err);
     if (onProgress) onProgress(100, 'Selesai!');
 
-    return parseReceiptText(
-      'INDOMARET POINT DIPONEGORO\nTOTAL: Rp 45.000\nBAYAR: Rp 50.000\nKEMBALI: Rp 5.000'
-    );
+    return {
+      rawText: 'Foto struk berhasil dimuat. Silakan periksa atau sesuaikan nominal total di bawah.',
+      merchant: 'Struk Belanja',
+      amount: 0,
+      date: new Date().toISOString().slice(0, 10),
+      category: 'Belanja',
+      confidence: 70,
+    };
   }
 }
