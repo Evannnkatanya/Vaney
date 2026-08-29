@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mic, MicOff, Sparkles, CheckCircle2, Volume2 } from 'lucide-react';
+import { X, Mic, CheckCircle2, Volume2, Save } from 'lucide-react';
 
 interface VoiceInputModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyData: (data: { merchant: string; amount: number; category: string }) => void;
+  onDirectSave?: (data: { merchant: string; amount: number; category: string }) => void;
 }
 
-export function VoiceInputModal({ isOpen, onClose, onApplyData }: VoiceInputModalProps) {
+export function VoiceInputModal({ isOpen, onClose, onApplyData, onDirectSave }: VoiceInputModalProps) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [parsedResult, setParsedResult] = useState<{
@@ -73,7 +74,7 @@ export function VoiceInputModal({ isOpen, onClose, onApplyData }: VoiceInputModa
     const lower = text.toLowerCase();
     let amount = 0;
     let merchant = 'Pengeluaran Umum';
-    let category = 'Kebutuhan Harian';
+    let category = 'Makan';
 
     // Parse numbers & shorthand (e.g. 50 ribu, 15000)
     const ribuMatch = lower.match(/(\d+)\s*ribu/);
@@ -92,18 +93,20 @@ export function VoiceInputModal({ isOpen, onClose, onApplyData }: VoiceInputModa
       amount = 20000;
     } else if (lower.includes('seratus ribu')) {
       amount = 100000;
+    } else if (lower.includes('dua puluh lima ribu')) {
+      amount = 25000;
     }
 
     // Parse merchant & category keywords
     if (lower.includes('starbucks') || lower.includes('kopi') || lower.includes('makan')) {
-      merchant = lower.includes('starbucks') ? 'Starbucks' : lower.includes('kopi') ? 'Kopi Shop' : 'Restoran';
-      category = 'Makanan & Minuman';
+      merchant = lower.includes('starbucks') ? 'Starbucks' : lower.includes('kopi') ? 'Kopi Shop' : 'Makan';
+      category = 'Makan';
     } else if (lower.includes('indomaret') || lower.includes('alfamart') || lower.includes('belanja')) {
       merchant = lower.includes('indomaret') ? 'Indomaret' : 'Alfamart';
-      category = 'Belanja Harian';
-    } else if (lower.includes('bensin') || lower.includes('pertamina') || lower.includes('gojek')) {
+      category = 'Belanja';
+    } else if (lower.includes('bensin') || lower.includes('pertamina') || lower.includes('gojek') || lower.includes('grab')) {
       merchant = lower.includes('gojek') ? 'Gojek Ride' : 'SPBU Pertamina';
-      category = 'Transportasi';
+      category = 'Transport';
     }
 
     setParsedResult({
@@ -113,9 +116,19 @@ export function VoiceInputModal({ isOpen, onClose, onApplyData }: VoiceInputModa
     });
   };
 
-  const handleConfirm = () => {
+  const handleApplyToForm = () => {
     if (!parsedResult) return;
     onApplyData(parsedResult);
+    onClose();
+  };
+
+  const handleDirectSave = () => {
+    if (!parsedResult) return;
+    if (onDirectSave) {
+      onDirectSave(parsedResult);
+    } else {
+      onApplyData(parsedResult);
+    }
     onClose();
   };
 
@@ -146,8 +159,9 @@ export function VoiceInputModal({ isOpen, onClose, onApplyData }: VoiceInputModa
         <div className="p-6 flex flex-col items-center text-center space-y-5 overflow-y-auto flex-1">
           {/* Big Mic Button */}
           <button
+            type="button"
             onClick={startListening}
-            className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl ${
+            className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl cursor-pointer ${
               isListening
                 ? 'bg-rose-500 text-white animate-pulse ring-8 ring-rose-500/20 scale-105'
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95'
@@ -182,7 +196,7 @@ export function VoiceInputModal({ isOpen, onClose, onApplyData }: VoiceInputModa
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-white p-2.5 rounded-xl border border-emerald-100">
-                  <p className="text-neutral-400 text-[10px] uppercase font-semibold">Merchant</p>
+                  <p className="text-neutral-400 text-[10px] uppercase font-semibold">Nama Pengeluaran</p>
                   <p className="font-bold text-neutral-800 text-sm mt-0.5">{parsedResult.merchant}</p>
                 </div>
                 <div className="bg-white p-2.5 rounded-xl border border-emerald-100">
@@ -196,21 +210,35 @@ export function VoiceInputModal({ isOpen, onClose, onApplyData }: VoiceInputModa
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex items-center justify-end gap-2">
+        {/* Footer with Direct Save and Apply */}
+        <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex flex-wrap items-center justify-between gap-2">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-neutral-200 text-neutral-700 font-semibold text-xs hover:bg-neutral-100 transition-colors"
+            className="px-3.5 py-2.5 rounded-xl border border-neutral-200 text-neutral-700 font-semibold text-xs hover:bg-neutral-100 transition-colors cursor-pointer"
           >
             Batal
           </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!parsedResult || isListening}
-            className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs shadow-md shadow-purple-600/20 disabled:opacity-40 disabled:pointer-events-none transition-all"
-          >
-            Gunakan Hasil Suara
-          </button>
+          
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleApplyToForm}
+              disabled={!parsedResult || isListening}
+              className="px-3.5 py-2.5 rounded-xl border border-purple-300 text-purple-800 bg-purple-50 hover:bg-purple-100 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+            >
+              Isi ke Formulir
+            </button>
+            <button
+              type="button"
+              onClick={handleDirectSave}
+              disabled={!parsedResult || isListening}
+              className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-600/20 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Simpan Langsung</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

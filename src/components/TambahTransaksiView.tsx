@@ -57,8 +57,8 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const amountVal = parseInt(rawAmount, 10);
     if (isNaN(amountVal) || amountVal <= 0) {
       alert('Silakan masukkan jumlah nominal transaksi yang valid.');
@@ -72,7 +72,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
     const title =
       note.trim() ||
       (selectedCategory === 'makan'
-        ? 'Makan Siang'
+        ? 'Makan'
         : selectedCategory === 'transport'
         ? 'Transportasi'
         : selectedCategory === 'belanja'
@@ -83,6 +83,8 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
         ? 'Hiburan'
         : 'Pengeluaran');
 
+    const targetAccId = selectedAccountId || accounts[0]?.id || 'bca';
+
     onSaveTransaction({
       title,
       amount: amountVal,
@@ -92,7 +94,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
       categoryIcon: catObj.icon,
       categoryBgClass: `${catObj.bgClass} ${catObj.textClass}`,
       categoryTextClass: catObj.textClass,
-      accountId: selectedAccountId,
+      accountId: targetAccId,
       potType,
       note: note.trim(),
     });
@@ -101,7 +103,80 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
     setTimeout(() => {
       setShowSuccessToast(false);
       onCancel();
-    }, 800);
+    }, 600);
+  };
+
+  // Direct Save handler from OCR Scan
+  const handleDirectSaveScanned = (scanned: {
+    merchant: string;
+    amount: number;
+    category: string;
+    date?: string;
+  }) => {
+    const catObj =
+      TRANSACTION_CATEGORIES.find(
+        (c) => c.name.toLowerCase() === scanned.category.toLowerCase(),
+      ) ||
+      TRANSACTION_CATEGORIES.find((c) => c.id === 'belanja') ||
+      TRANSACTION_CATEGORIES[0];
+
+    const targetAccId = selectedAccountId || accounts[0]?.id || 'bca';
+
+    onSaveTransaction({
+      title: scanned.merchant || 'Struk Belanja',
+      amount: scanned.amount,
+      type: 'expense',
+      date: scanned.date || date,
+      categoryName: catObj.name,
+      categoryIcon: catObj.icon,
+      categoryBgClass: `${catObj.bgClass} ${catObj.textClass}`,
+      categoryTextClass: catObj.textClass,
+      accountId: targetAccId,
+      potType,
+      note: `Struk: ${scanned.merchant}`,
+    });
+
+    setShowSuccessToast(true);
+    setTimeout(() => {
+      setShowSuccessToast(false);
+      onCancel();
+    }, 600);
+  };
+
+  // Direct Save handler from Voice Input
+  const handleDirectSaveVoice = (parsed: {
+    merchant: string;
+    amount: number;
+    category: string;
+  }) => {
+    const catObj =
+      TRANSACTION_CATEGORIES.find(
+        (c) => c.name.toLowerCase() === parsed.category.toLowerCase(),
+      ) ||
+      TRANSACTION_CATEGORIES.find((c) => c.id === 'makan') ||
+      TRANSACTION_CATEGORIES[0];
+
+    const targetAccId = selectedAccountId || accounts[0]?.id || 'bca';
+
+    onSaveTransaction({
+      title: parsed.merchant || 'Pengeluaran Suara',
+      amount: parsed.amount,
+      type: 'expense',
+      date,
+      categoryName: catObj.name,
+      categoryIcon: catObj.icon,
+      categoryBgClass: `${catObj.bgClass} ${catObj.textClass}`,
+      categoryTextClass: catObj.textClass,
+      accountId: targetAccId,
+      potType,
+      note: `Suara: ${parsed.merchant}`,
+    });
+
+    setShowSuccessToast(true);
+    setTimeout(() => {
+      setShowSuccessToast(false);
+      onCancel();
+    }, 600);
   };
 
   return (
@@ -116,7 +191,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
             check_circle
           </span>
           <span className="text-sm font-semibold">
-            Transaksi berhasil dicatat!
+            Transaksi berhasil dicatat ke laporan!
           </span>
         </div>
       )}
@@ -271,7 +346,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
               >
                 {(accounts && accounts.length > 0
                   ? accounts
-                  : [{ id: 'bca', name: 'Bank BCA', subtitle: 'Utama' }]
+                  : [{ id: 'bca', name: 'Rekening Bank (BCA)', subtitle: 'Tabungan Utama' }]
                 ).map((acc) => (
                   <option key={acc.id} value={acc.id}>
                     {acc.name} ({acc.subtitle || 'Akun'})
@@ -389,6 +464,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
             );
             if (found) setSelectedCategory(found.id);
           }}
+          onDirectSave={handleDirectSaveScanned}
         />
       )}
 
@@ -404,9 +480,9 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
             );
             if (found) setSelectedCategory(found.id);
           }}
+          onDirectSave={handleDirectSaveVoice}
         />
       )}
     </main>
   );
 };
-

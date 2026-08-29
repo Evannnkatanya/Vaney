@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Tag,
   Smartphone,
+  Save,
 } from 'lucide-react';
 import { performReceiptOCR, parseReceiptText } from '../utils/receiptParser';
 import { TRANSACTION_CATEGORIES } from '../data/initialData';
@@ -21,9 +22,10 @@ interface OCRScanModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyData: (data: { merchant: string; amount: number; category: string; date?: string }) => void;
+  onDirectSave?: (data: { merchant: string; amount: number; category: string; date?: string }) => void;
 }
 
-export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps) {
+export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCRScanModalProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
@@ -146,7 +148,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   };
 
   // Apply parsed & edited data to transaction form
-  const handleConfirm = () => {
+  const handleApplyToForm = () => {
     const finalAmount = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
     if (!merchantInput.trim() || finalAmount <= 0) {
       alert('Mohon periksa kembali nama toko dan nominal total.');
@@ -159,6 +161,29 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
       category: categoryInput,
       date: dateInput,
     });
+    onClose();
+  };
+
+  // Direct Save to Transactions & Reports
+  const handleDirectSave = () => {
+    const finalAmount = parseInt(amountInput.replace(/\D/g, ''), 10) || 0;
+    if (!merchantInput.trim() || finalAmount <= 0) {
+      alert('Mohon periksa kembali nama toko dan nominal total.');
+      return;
+    }
+
+    const payload = {
+      merchant: merchantInput.trim(),
+      amount: finalAmount,
+      category: categoryInput,
+      date: dateInput,
+    };
+
+    if (onDirectSave) {
+      onDirectSave(payload);
+    } else {
+      onApplyData(payload);
+    }
     onClose();
   };
 
@@ -430,23 +455,35 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
           )}
         </div>
 
-        {/* Footer Buttons - Fixed Bottom */}
-        <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex items-center justify-end gap-2 shrink-0">
+        {/* Footer Buttons - Fixed Bottom with Direct Save CTA */}
+        <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-neutral-200 text-neutral-700 font-semibold text-xs hover:bg-neutral-100 transition-colors cursor-pointer"
+            className="px-3.5 py-2.5 rounded-xl border border-neutral-200 text-neutral-700 font-semibold text-xs hover:bg-neutral-100 transition-colors cursor-pointer"
           >
             Batal
           </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!hasResult || isScanning}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
-          >
-            Terapkan ke Transaksi
-          </button>
+          
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleApplyToForm}
+              disabled={!hasResult || isScanning}
+              className="px-3.5 py-2.5 rounded-xl border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+            >
+              Isi ke Formulir
+            </button>
+            <button
+              type="button"
+              onClick={handleDirectSave}
+              disabled={!hasResult || isScanning}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Simpan Langsung</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
