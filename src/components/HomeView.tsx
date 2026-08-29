@@ -1,7 +1,6 @@
 import React from 'react';
 import { formatRupiah } from '../data/initialData';
 import { BudgetPot, TabType, Transaction } from '../types';
-import { Camera, Volume2, PlusCircle, Sparkles } from 'lucide-react';
 
 interface HomeViewProps {
   totalBalance: number;
@@ -10,8 +9,6 @@ interface HomeViewProps {
   onNavigate: (tab: TabType) => void;
   onSelectTransaction: (tx: Transaction) => void;
   onOpenAddTransaction: () => void;
-  onOpenOCR?: () => void;
-  onOpenVoice?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -21,13 +18,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   onSelectTransaction,
   onOpenAddTransaction,
-  onOpenOCR,
-  onOpenVoice,
 }) => {
   return (
     <main
       id="home-canvas"
-      className="px-5 py-4 max-w-[1140px] mx-auto flex flex-col gap-6 w-full animate-in fade-in duration-300"
+      className="px-5 py-4 max-w-[1140px] mx-auto flex flex-col gap-8 w-full animate-in fade-in duration-300"
     >
       {/* Total Balance Card (Bento Minimalist) */}
       <section
@@ -68,54 +63,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <span className="text-xs font-medium text-[#414843]">Cash</span>
           </button>
         </div>
-      </section>
-
-      {/* Quick Action Smart Input Grid (Prominent on Mobile Android & Desktop) */}
-      <section id="section-quick-actions" className="grid grid-cols-3 gap-2.5 sm:gap-4">
-        {/* 1. Scan Struk Button */}
-        <button
-          type="button"
-          onClick={onOpenOCR || onOpenAddTransaction}
-          className="bg-emerald-50/80 hover:bg-emerald-100/80 border border-emerald-200/80 rounded-2xl p-3.5 sm:p-4 flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-sm group"
-        >
-          <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 group-hover:scale-110 transition-transform">
-            <Camera className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="font-bold text-emerald-950 text-xs sm:text-sm">Scan Struk</p>
-            <p className="text-[10px] text-emerald-700 hidden sm:block">Foto struk otomatis</p>
-          </div>
-        </button>
-
-        {/* 2. Input Suara Button */}
-        <button
-          type="button"
-          onClick={onOpenVoice || onOpenAddTransaction}
-          className="bg-purple-50/80 hover:bg-purple-100/80 border border-purple-200/80 rounded-2xl p-3.5 sm:p-4 flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-sm group"
-        >
-          <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/20 group-hover:scale-110 transition-transform">
-            <Volume2 className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="font-bold text-purple-950 text-xs sm:text-sm">Input Suara</p>
-            <p className="text-[10px] text-purple-700 hidden sm:block">Catat lewat bicara</p>
-          </div>
-        </button>
-
-        {/* 3. Tambah Manual Button */}
-        <button
-          type="button"
-          onClick={onOpenAddTransaction}
-          className="bg-white hover:bg-neutral-50 border border-neutral-200 rounded-2xl p-3.5 sm:p-4 flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-sm group"
-        >
-          <div className="w-10 h-10 rounded-full bg-[#406651] text-white flex items-center justify-center shadow-md shadow-[#406651]/20 group-hover:scale-110 transition-transform">
-            <PlusCircle className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="font-bold text-neutral-900 text-xs sm:text-sm">Manual</p>
-            <p className="text-[10px] text-neutral-500 hidden sm:block">Input formulir</p>
-          </div>
-        </button>
       </section>
 
       {/* Pot Anggaran Section */}
@@ -216,26 +163,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
               <p className="text-sm font-bold text-neutral-800">Belum Ada Transaksi</p>
               <p className="text-xs text-neutral-500 max-w-xs">
-                Gunakan tombol Scan Struk atau Suara di atas untuk mencatat transaksi dengan cepat!
+                Transaksi yang Anda catat akan otomatis tersimpan aman di perangkat lokal Anda.
               </p>
-              <div className="flex gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={onOpenOCR || onOpenAddTransaction}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>Scan Struk</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenVoice || onOpenAddTransaction}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Suara</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={onOpenAddTransaction}
+                className="mt-2 px-5 py-2.5 bg-[#406651] hover:bg-[#284e3a] text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>Catat Pengeluaran Baru</span>
+              </button>
             </div>
           ) : (
             transactions.slice(0, 6).map((tx) => {
@@ -283,6 +220,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </div>
       </section>
+
+      {/* Quick Add floating button on mobile */}
+      <div className="md:hidden pt-2 pb-2 flex justify-center">
+        <button
+          id="btn-home-quick-add"
+          onClick={onOpenAddTransaction}
+          className="bg-[#406651] text-[#ffffff] px-6 py-3 rounded-2xl text-sm font-semibold flex items-center gap-2 shadow-[0px_10px_25px_rgba(64,102,81,0.25)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[18px]">add</span>
+          Catat Pengeluaran Baru
+        </button>
+      </div>
     </main>
   );
 };

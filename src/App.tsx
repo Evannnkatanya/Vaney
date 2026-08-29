@@ -4,7 +4,6 @@ import {
   INITIAL_BUDGET_POTS,
   INITIAL_CATEGORY_MAPPINGS,
   INITIAL_TRANSACTIONS,
-  TRANSACTION_CATEGORIES,
 } from './data/initialData';
 import {
   Account,
@@ -30,8 +29,6 @@ import { PinLockScreen } from './components/PinLockScreen';
 import { ModalBackupRestore } from './components/ModalBackupRestore';
 import { ModalSupabaseSync } from './components/ModalSupabaseSync';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { OCRScanModal } from './components/OCRScanModal';
-import { VoiceInputModal } from './components/VoiceInputModal';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
@@ -49,8 +46,6 @@ export default function App() {
   // Modals state
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
-  const [isOCROpen, setIsOCROpen] = useState(false);
-  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenBackup = () => setIsBackupModalOpen(true);
@@ -227,72 +222,6 @@ export default function App() {
     }
   };
 
-  // Direct save handlers for OCR & Voice
-  const handleDirectSaveScanned = (scanned: {
-    merchant: string;
-    amount: number;
-    category: string;
-    date?: string;
-  }) => {
-    const catObj =
-      TRANSACTION_CATEGORIES.find(
-        (c) => c.name.toLowerCase() === scanned.category.toLowerCase(),
-      ) ||
-      TRANSACTION_CATEGORIES.find((c) => c.id === 'belanja') ||
-      TRANSACTION_CATEGORIES[0];
-
-    const targetAccount = accounts.find((a) => !a.isCredit && a.balance > 0) || accounts[0];
-
-    handleSaveTransaction({
-      title: scanned.merchant || 'Struk Belanja',
-      amount: scanned.amount,
-      type: 'expense',
-      date: scanned.date || new Date().toISOString().split('T')[0],
-      categoryName: catObj.name,
-      categoryIcon: catObj.icon,
-      categoryBgClass: `${catObj.bgClass} ${catObj.textClass}`,
-      categoryTextClass: catObj.textClass,
-      accountId: targetAccount ? targetAccount.id : 'bca',
-      potType: 'harian',
-      note: `Struk: ${scanned.merchant}`,
-    });
-
-    setIsOCROpen(false);
-    handleTabChange('home');
-  };
-
-  const handleDirectSaveVoice = (parsed: {
-    merchant: string;
-    amount: number;
-    category: string;
-  }) => {
-    const catObj =
-      TRANSACTION_CATEGORIES.find(
-        (c) => c.name.toLowerCase() === parsed.category.toLowerCase(),
-      ) ||
-      TRANSACTION_CATEGORIES.find((c) => c.id === 'makan') ||
-      TRANSACTION_CATEGORIES[0];
-
-    const targetAccount = accounts.find((a) => !a.isCredit && a.balance > 0) || accounts[0];
-
-    handleSaveTransaction({
-      title: parsed.merchant || 'Pengeluaran Suara',
-      amount: parsed.amount,
-      type: 'expense',
-      date: new Date().toISOString().split('T')[0],
-      categoryName: catObj.name,
-      categoryIcon: catObj.icon,
-      categoryBgClass: `${catObj.bgClass} ${catObj.textClass}`,
-      categoryTextClass: catObj.textClass,
-      accountId: targetAccount ? targetAccount.id : 'bca',
-      potType: 'harian',
-      note: `Suara: ${parsed.merchant}`,
-    });
-
-    setIsVoiceOpen(false);
-    handleTabChange('home');
-  };
-
   // Delete transaction
   const handleDeleteTransaction = (id: string) => {
     const txToDelete = transactions.find((t) => t.id === id);
@@ -415,8 +344,6 @@ export default function App() {
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onAvatarClick={() => handleTabChange('profil')}
         onBack={() => handleTabChange(prevTab || 'home')}
-        onOpenOCR={() => setIsOCROpen(true)}
-        onOpenVoice={() => setIsVoiceOpen(true)}
       />
 
       {/* View Switcher with bottom padding on mobile so content is never cut off by the bottom navbar */}
@@ -430,8 +357,6 @@ export default function App() {
               onNavigate={handleTabChange}
               onSelectTransaction={(tx) => setSelectedTransaction(tx)}
               onOpenAddTransaction={() => handleTabChange('tambah')}
-              onOpenOCR={() => setIsOCROpen(true)}
-              onOpenVoice={() => setIsVoiceOpen(true)}
             />
           )}
 
@@ -466,31 +391,6 @@ export default function App() {
 
       {/* Mobile Bottom Navigation Bar */}
       <BottomNavBar currentTab={currentTab} onChangeTab={handleTabChange} />
-
-      {/* Root Level Smart Input Modals - Accessible from Home, TopBar, and Tambah Views */}
-      {isOCROpen && (
-        <OCRScanModal
-          isOpen={isOCROpen}
-          onClose={() => setIsOCROpen(false)}
-          onApplyData={(scanned) => {
-            setIsOCROpen(false);
-            handleTabChange('tambah');
-          }}
-          onDirectSave={handleDirectSaveScanned}
-        />
-      )}
-
-      {isVoiceOpen && (
-        <VoiceInputModal
-          isOpen={isVoiceOpen}
-          onClose={() => setIsVoiceOpen(false)}
-          onApplyData={(parsed) => {
-            setIsVoiceOpen(false);
-            handleTabChange('tambah');
-          }}
-          onDirectSave={handleDirectSaveVoice}
-        />
-      )}
 
       {/* Modals & Drawers */}
       <ModalAddAccount
