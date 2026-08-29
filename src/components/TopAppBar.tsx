@@ -1,6 +1,7 @@
 import React from 'react';
 import { USER_AVATAR_URL } from '../data/initialData';
 import { TabType } from '../types';
+import { Check } from 'lucide-react';
 
 interface TopAppBarProps {
   currentTab: TabType;
@@ -8,6 +9,7 @@ interface TopAppBarProps {
   unreadNotificationsCount?: number;
   onAvatarClick?: () => void;
   onBack?: () => void;
+  onSave?: () => void;
 }
 
 export const TopAppBar: React.FC<TopAppBarProps> = ({
@@ -16,10 +18,11 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
   unreadNotificationsCount = 2,
   onAvatarClick,
   onBack,
+  onSave,
 }) => {
   if (currentTab === 'tambah') {
     return (
-      <header className="w-full top-0 sticky z-40 bg-[#f9f9f7] flex justify-between items-center px-5 py-4 transition-all duration-200 border-b border-transparent">
+      <header className="w-full top-0 sticky z-40 bg-[#f9f9f7] flex justify-between items-center px-5 py-4 transition-all duration-200 border-b border-[#e8e8e6]/60">
         <button
           id="btn-back-nav"
           onClick={onBack}
@@ -33,17 +36,31 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
             Tambah Transaksi
           </h1>
         </button>
-        <button
-          id="btn-avatar-header"
-          onClick={onAvatarClick}
-          className="w-10 h-10 rounded-full bg-[#e2e3e1] flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#406651]/30 transition-all cursor-pointer"
-        >
-          <img
-            alt="User Profile"
-            className="w-full h-full object-cover"
-            src={USER_AVATAR_URL}
-          />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {onSave && (
+            <button
+              id="btn-header-save-tx"
+              type="button"
+              onClick={onSave}
+              className="px-4 py-2 rounded-xl bg-[#406651] hover:bg-[#284e3a] text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-[#406651]/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <Check className="w-4 h-4" />
+              <span>Simpan</span>
+            </button>
+          )}
+          <button
+            id="btn-avatar-header"
+            onClick={onAvatarClick}
+            className="w-9 h-9 rounded-full bg-[#e2e3e1] flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#406651]/30 transition-all cursor-pointer"
+          >
+            <img
+              alt="User Profile"
+              className="w-full h-full object-cover"
+              src={USER_AVATAR_URL}
+            />
+          </button>
+        </div>
       </header>
     );
   }

@@ -338,12 +338,13 @@ export default function App() {
         onOpenAddTransaction={() => handleTabChange('tambah')}
       />
 
-      {/* Top App Bar */}
+      {/* Top App Bar with Header Save Action */}
       <TopAppBar
         currentTab={currentTab}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onAvatarClick={() => handleTabChange('profil')}
         onBack={() => handleTabChange(prevTab || 'home')}
+        onSave={() => window.dispatchEvent(new CustomEvent('vaney-submit-tx'))}
       />
 
       {/* View Switcher with bottom padding on mobile so content is never cut off by the bottom navbar */}

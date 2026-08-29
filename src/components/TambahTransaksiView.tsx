@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TRANSACTION_CATEGORIES } from '../data/initialData';
 import { Account, Transaction } from '../types';
 import { OCRScanModal } from './OCRScanModal';
@@ -106,6 +106,17 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
     }, 600);
   };
 
+  useEffect(() => {
+    const handleTriggerSave = () => {
+      handleSubmit();
+    };
+
+    window.addEventListener('vaney-submit-tx', handleTriggerSave);
+    return () => {
+      window.removeEventListener('vaney-submit-tx', handleTriggerSave);
+    };
+  });
+
   // Direct Save handler from OCR Scan
   const handleDirectSaveScanned = (scanned: {
     merchant: string;
@@ -197,7 +208,18 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
       )}
 
       {/* Main Left Column: Amount + Numpad + Categories */}
-      <div className="md:col-span-7 flex flex-col gap-6">
+      <div className="md:col-span-7 flex flex-col gap-5">
+        {/* Top Direct Save Button (Always visible at the very top on Mobile Android & Desktop) */}
+        <button
+          id="btn-top-save-tx"
+          type="button"
+          onClick={handleSubmit}
+          className="w-full bg-[#406651] hover:bg-[#284e3a] text-[#ffffff] font-bold text-sm sm:text-base py-3.5 px-4 rounded-[18px] flex items-center justify-center gap-2 shadow-[0px_8px_20px_rgba(64,102,81,0.25)] hover:scale-[1.01] active:scale-98 transition-all cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[20px]">check_circle</span>
+          <span>Simpan Transaksi (Rp {formatNumber(rawAmount)})</span>
+        </button>
+
         {/* Smart Input Prominent Action Cards (OCR & Voice) */}
         <div className="grid grid-cols-2 gap-3">
           <button

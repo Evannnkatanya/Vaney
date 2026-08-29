@@ -177,24 +177,35 @@ export function VoiceInputModal({ isOpen, onClose, onApplyData, onDirectSave }: 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200 border border-neutral-100 flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between bg-[#f9f9f7] shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600">
+        {/* Header with Top Simpan Button */}
+        <div className="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between bg-[#f9f9f7] shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 shrink-0">
               <Volume2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Input Transaksi Suara</h2>
-              <p className="text-xs text-neutral-500">Ucapkan rincian pengeluaran Anda</p>
+              <h2 className="text-sm sm:text-base font-bold text-neutral-900 leading-tight">Input Suara</h2>
+              <p className="text-[10px] text-neutral-500">Bicara pengeluaran</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-neutral-200/60 text-neutral-500 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDirectSave}
+              className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-600/20 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Simpan</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-neutral-200/60 text-neutral-500 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
