@@ -379,6 +379,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
         onApplyData={(scanned) => {
           setRawAmount(scanned.amount.toString());
           setNote(scanned.merchant);
+          if (scanned.date) setDate(scanned.date);
           // find matching category
           const found = TRANSACTION_CATEGORIES.find(
             (c) => c.name.toLowerCase() === scanned.category.toLowerCase(),
