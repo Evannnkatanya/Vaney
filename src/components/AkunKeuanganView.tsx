@@ -6,12 +6,14 @@ interface AkunKeuanganViewProps {
   accounts: Account[];
   onOpenAddAccount: () => void;
   onSelectAccount: (account: Account) => void;
+  onResetAllData?: () => void;
 }
 
 export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
   accounts,
   onOpenAddAccount,
   onSelectAccount,
+  onResetAllData,
 }) => {
   // Calculate total overall balance (all positive assets + credit)
   const totalNetBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
@@ -107,7 +109,7 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
       </div>
 
       {/* Security & Backup Settings Section */}
-      <div className="md:col-span-12 mt-8 mb-16 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="md:col-span-12 mt-8 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Security Lock Card */}
         <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between space-y-4">
           <div className="flex items-center gap-3">
@@ -115,7 +117,7 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
               <span className="material-symbols-outlined text-[24px]">lock</span>
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#1a1c1b]">Keamanan & Pengunci Aplikasi</h3>
+              <h3 className="text-base font-bold text-[#1a1c1b]">Keamanan & Pengunci PIN</h3>
               <p className="text-xs text-[#717973]">Kunci aplikasi Vaney dengan PIN 4-digit</p>
             </div>
           </div>
@@ -162,13 +164,13 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
               <span className="material-symbols-outlined text-[24px]">backup</span>
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#1a1c1b]">Backup & Restore Data</h3>
-              <p className="text-xs text-[#717973]">Simpan atau pulihkan data JSON/CSV offline</p>
+              <h3 className="text-base font-bold text-[#1a1c1b]">Backup & Cloud Sync</h3>
+              <p className="text-xs text-[#717973]">Simpan atau pulihkan data keuangan</p>
             </div>
           </div>
 
           <p className="text-xs text-neutral-500">
-            Jaga keamanan catatan transaksi Anda dengan mengekspor backup lokal berkala.
+            Jaga keamanan catatan transaksi Anda dengan mengekspor backup berkala.
           </p>
 
           <div className="grid grid-cols-2 gap-2">
@@ -196,7 +198,30 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Danger Zone: Reset All Data to 0 */}
+      {onResetAllData && (
+        <div className="md:col-span-12 mb-12">
+          <div className="bg-rose-50/70 border border-rose-200 rounded-[24px] p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-rose-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-rose-600">delete_forever</span>
+                Reset Semua Data Aplikasi
+              </h4>
+              <p className="text-xs text-rose-700 mt-1 max-w-lg">
+                Hapus semua riwayat transaksi, alokasi pot, dan atur ulang saldo akun menjadi Rp 0.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onResetAllData}
+              className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer whitespace-nowrap"
+            >
+              Reset Data Ke Rp 0
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 };
-

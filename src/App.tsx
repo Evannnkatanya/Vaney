@@ -60,6 +60,19 @@ export default function App() {
     };
   }, []);
 
+// Ensure old cached mock data is cleanly wiped to Rp 0 on version upgrade
+const VANEY_STORAGE_VERSION = 'vaney_v2_zero_clean';
+if (typeof window !== 'undefined') {
+  const currentVersion = localStorage.getItem('vaney_storage_version');
+  if (currentVersion !== VANEY_STORAGE_VERSION) {
+    localStorage.removeItem('vaney_accounts');
+    localStorage.removeItem('vaney_budget_pots');
+    localStorage.removeItem('vaney_category_mappings');
+    localStorage.removeItem('vaney_transactions');
+    localStorage.setItem('vaney_storage_version', VANEY_STORAGE_VERSION);
+  }
+}
+
   // Core data states with localStorage initialization
   const [accounts, setAccounts] = useState<Account[]>(() => {
     const saved = localStorage.getItem('vaney_accounts');
@@ -108,6 +121,21 @@ export default function App() {
     }
     return INITIAL_TRANSACTIONS;
   });
+
+  // Manual reset all data to clean 0 state
+  const handleResetAllData = () => {
+    if (window.confirm('Reset semua data transaksi, pot, dan saldo akun kembali menjadi Rp 0?')) {
+      localStorage.removeItem('vaney_accounts');
+      localStorage.removeItem('vaney_budget_pots');
+      localStorage.removeItem('vaney_category_mappings');
+      localStorage.removeItem('vaney_transactions');
+      setAccounts(INITIAL_ACCOUNTS);
+      setBudgetPots(INITIAL_BUDGET_POTS);
+      setCategoryMappings(INITIAL_CATEGORY_MAPPINGS);
+      setTransactions([]);
+      alert('Semua data berhasil di-reset ke Rp 0!');
+    }
+  };
 
   // Modals state
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
@@ -353,6 +381,7 @@ export default function App() {
               accounts={accounts}
               onOpenAddAccount={() => setIsAddAccountOpen(true)}
               onSelectAccount={(acc) => setSelectedAccount(acc)}
+              onResetAllData={handleResetAllData}
             />
           )}
         </ErrorBoundary>
