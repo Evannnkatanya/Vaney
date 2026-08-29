@@ -269,9 +269,12 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
                 onChange={(e) => setSelectedAccountId(e.target.value)}
                 className="w-full bg-[#f4f4f2] border border-[#e2e3e1] text-[#1a1c1b] text-sm font-medium rounded-[16px] px-4 py-3 appearance-none focus:ring-2 focus:ring-[#406651] outline-none cursor-pointer"
               >
-                {accounts.map((acc) => (
+                {(accounts && accounts.length > 0
+                  ? accounts
+                  : [{ id: 'bca', name: 'Bank BCA', subtitle: 'Utama' }]
+                ).map((acc) => (
                   <option key={acc.id} value={acc.id}>
-                    {acc.name} ({acc.subtitle})
+                    {acc.name} ({acc.subtitle || 'Akun'})
                   </option>
                 ))}
               </select>

@@ -28,6 +28,7 @@ import { AccountDetailModal } from './components/AccountDetailModal';
 import { PinLockScreen } from './components/PinLockScreen';
 import { ModalBackupRestore } from './components/ModalBackupRestore';
 import { ModalSupabaseSync } from './components/ModalSupabaseSync';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
@@ -317,42 +318,44 @@ export default function App() {
 
       {/* View Switcher */}
       <div className="flex-1 w-full">
-        {currentTab === 'home' && (
-          <HomeView
-            totalBalance={homeTotalBalance > 0 ? homeTotalBalance : 15450000}
-            pots={budgetPots}
-            transactions={transactions}
-            onNavigate={handleTabChange}
-            onSelectTransaction={(tx) => setSelectedTransaction(tx)}
-            onOpenAddTransaction={() => handleTabChange('tambah')}
-          />
-        )}
+        <ErrorBoundary onReset={() => handleTabChange('home')}>
+          {currentTab === 'home' && (
+            <HomeView
+              totalBalance={homeTotalBalance > 0 ? homeTotalBalance : 15450000}
+              pots={budgetPots}
+              transactions={transactions}
+              onNavigate={handleTabChange}
+              onSelectTransaction={(tx) => setSelectedTransaction(tx)}
+              onOpenAddTransaction={() => handleTabChange('tambah')}
+            />
+          )}
 
-        {currentTab === 'jatah' && (
-          <JatahView
-            categories={categoryMappings}
-            onOpenAddCategory={() => setIsAddCategoryOpen(true)}
-            onDeleteCategory={handleDeleteCategory}
-          />
-        )}
+          {currentTab === 'jatah' && (
+            <JatahView
+              categories={categoryMappings}
+              onOpenAddCategory={() => setIsAddCategoryOpen(true)}
+              onDeleteCategory={handleDeleteCategory}
+            />
+          )}
 
-        {currentTab === 'tambah' && (
-          <TambahTransaksiView
-            accounts={accounts}
-            onSaveTransaction={handleSaveTransaction}
-            onCancel={() => handleTabChange(prevTab || 'home')}
-          />
-        )}
+          {currentTab === 'tambah' && (
+            <TambahTransaksiView
+              accounts={accounts}
+              onSaveTransaction={handleSaveTransaction}
+              onCancel={() => handleTabChange(prevTab || 'home')}
+            />
+          )}
 
-        {currentTab === 'laporan' && <LaporanView transactions={transactions} />}
+          {currentTab === 'laporan' && <LaporanView transactions={transactions} />}
 
-        {currentTab === 'profil' && (
-          <AkunKeuanganView
-            accounts={accounts}
-            onOpenAddAccount={() => setIsAddAccountOpen(true)}
-            onSelectAccount={(acc) => setSelectedAccount(acc)}
-          />
-        )}
+          {currentTab === 'profil' && (
+            <AkunKeuanganView
+              accounts={accounts}
+              onOpenAddAccount={() => setIsAddAccountOpen(true)}
+              onSelectAccount={(acc) => setSelectedAccount(acc)}
+            />
+          )}
+        </ErrorBoundary>
       </div>
 
       {/* Mobile Bottom Navigation Bar */}
