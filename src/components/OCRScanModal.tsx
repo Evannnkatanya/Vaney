@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   X,
   Camera,
@@ -10,11 +10,10 @@ import {
   Edit3,
   Video,
   VideoOff,
-  RefreshCw,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { performReceiptOCR, parseReceiptText, ParsedReceipt } from '../utils/receiptParser';
+import { performReceiptOCR, parseReceiptText } from '../utils/receiptParser';
 import { TRANSACTION_CATEGORIES } from '../data/initialData';
 
 interface OCRScanModalProps {
@@ -28,7 +27,7 @@ const MOCK_RECEIPTS = [
     name: 'Indomaret Point',
     merchant: 'Indomaret Point',
     amount: 45000,
-    category: 'Belanja Harian',
+    category: 'Belanja',
     rawText: `INDOMARET POINT DIPONEGORO
 JL. DIPONEGORO NO. 45
 TGL: 28/08/2026 14:20
@@ -46,7 +45,7 @@ KEMBALI:          Rp 5.000`,
     name: 'Starbucks Coffee',
     merchant: 'Starbucks Coffee',
     amount: 68000,
-    category: 'Makanan & Minuman',
+    category: 'Makan',
     rawText: `STARBUCKS COFFEE GRAND INDONESIA
 RECEIPT #84920
 DATE: 2026-08-28 16:45
@@ -61,7 +60,7 @@ TERIMA KASIH ATAS KUNJUNGAN ANDA`,
     name: 'SPBU Pertamina',
     merchant: 'SPBU Pertamina',
     amount: 150000,
-    category: 'Transportasi',
+    category: 'Transport',
     rawText: `SPBU PERTAMINA 34.12304
 JL. GATOT SUBROTO
 TANGGAL: 27-08-2026 09:12
@@ -85,7 +84,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   // Parsed and editable state
   const [merchantInput, setMerchantInput] = useState('');
   const [amountInput, setAmountInput] = useState<string>('');
-  const [categoryInput, setCategoryInput] = useState('Makanan & Minuman');
+  const [categoryInput, setCategoryInput] = useState('Makan');
   const [dateInput, setDateInput] = useState(new Date().toISOString().slice(0, 10));
   const [rawOcrText, setRawOcrText] = useState('');
   const [showRawText, setShowRawText] = useState(false);
@@ -97,32 +96,21 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      stopCamera();
-      setImagePreview(null);
-      setIsScanning(false);
-      setMerchantInput('');
-      setAmountInput('');
-      setRawOcrText('');
-      setErrorMsg(null);
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
-  }, [isOpen]);
+    setIsCameraActive(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stopCamera]);
 
   if (!isOpen) return null;
-
-  // File Upload Handler (Real OCR)
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    stopCamera();
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-    setErrorMsg(null);
-
-    await processImageOCR(file);
-  };
 
   // Process OCR using Tesseract worker
   const processImageOCR = async (source: File | Blob | string) => {
@@ -144,7 +132,6 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
       setConfidence(result.confidence);
     } catch (err: any) {
       console.warn('OCR error, using smart fallback parser:', err);
-      // Fallback parser
       const fallbackResult = parseReceiptText(
         typeof source === 'string' ? source : 'Struk Belanja\nTotal: Rp 50.000\nTanggal: ' + new Date().toISOString()
       );
@@ -156,6 +143,19 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
     } finally {
       setIsScanning(false);
     }
+  };
+
+  // File Upload Handler (Real OCR)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    stopCamera();
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+    setErrorMsg(null);
+
+    await processImageOCR(file);
   };
 
   // Mock Receipt selection for quick testing
@@ -170,13 +170,13 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
       const parsed = parseReceiptText(mock.rawText);
       setMerchantInput(parsed.merchant || mock.merchant);
       setAmountInput(parsed.amount ? parsed.amount.toString() : mock.amount.toString());
-      setCategoryInput(parsed.category || mock.category);
+      setCategoryInput(mock.category);
       setDateInput(parsed.date);
       setRawOcrText(mock.rawText);
       setConfidence(96);
       setIsScanning(false);
       setProgressPct(100);
-    }, 600);
+    }, 400);
   };
 
   // Live Camera Controls
@@ -196,14 +196,6 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
       setErrorMsg('Gagal mengakses kamera. Pastikan izin kamera aktif.');
       setIsCameraActive(false);
     }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setIsCameraActive(false);
   };
 
   const capturePhoto = () => {
@@ -254,11 +246,12 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
               <Camera className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-neutral-900">Scan Struk Belanja (OCR Nyata)</h2>
+              <h2 className="text-base font-bold text-neutral-900">Scan Struk Belanja (OCR)</h2>
               <p className="text-xs text-neutral-500">Membaca merchant, tanggal & total nominal foto struk</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-neutral-200/60 text-neutral-500 transition-colors cursor-pointer"
           >
@@ -314,7 +307,7 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
                 </div>
                 <div>
                   <p className="font-bold text-neutral-800">Unggah Gambar Struk</p>
-                  <p className="text-[10px] text-neutral-400">Pilih file foto dari galeri</p>
+                  <p className="text-[10px] text-neutral-400">Pilih foto struk belanja</p>
                 </div>
               </div>
 
@@ -335,14 +328,14 @@ export function OCRScanModal({ isOpen, onClose, onApplyData }: OCRScanModalProps
             </div>
           )}
 
-          {/* Image Preview & Quick Presets */}
+          {/* Image Preview */}
           {imagePreview && !isCameraActive && (
             <div className="relative rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 flex items-center justify-center h-36">
               <img src={imagePreview} alt="Preview Struk" className="h-full object-contain" />
               <button
                 type="button"
                 onClick={() => setImagePreview(null)}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors cursor-pointer"
                 title="Hapus gambar"
               >
                 <X className="w-3.5 h-3.5" />

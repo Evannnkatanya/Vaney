@@ -376,33 +376,36 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
       </div>
 
       {/* Smart Input Modals */}
-      <OCRScanModal
-        isOpen={isOCROpen}
-        onClose={() => setIsOCROpen(false)}
-        onApplyData={(scanned) => {
-          setRawAmount(scanned.amount.toString());
-          setNote(scanned.merchant);
-          if (scanned.date) setDate(scanned.date);
-          // find matching category
-          const found = TRANSACTION_CATEGORIES.find(
-            (c) => c.name.toLowerCase() === scanned.category.toLowerCase(),
-          );
-          if (found) setSelectedCategory(found.id);
-        }}
-      />
+      {isOCROpen && (
+        <OCRScanModal
+          isOpen={isOCROpen}
+          onClose={() => setIsOCROpen(false)}
+          onApplyData={(scanned) => {
+            setRawAmount(scanned.amount.toString());
+            setNote(scanned.merchant);
+            if (scanned.date) setDate(scanned.date);
+            const found = TRANSACTION_CATEGORIES.find(
+              (c) => c.name.toLowerCase() === scanned.category.toLowerCase(),
+            );
+            if (found) setSelectedCategory(found.id);
+          }}
+        />
+      )}
 
-      <VoiceInputModal
-        isOpen={isVoiceOpen}
-        onClose={() => setIsVoiceOpen(false)}
-        onApplyData={(parsed) => {
-          setRawAmount(parsed.amount.toString());
-          setNote(parsed.merchant);
-          const found = TRANSACTION_CATEGORIES.find(
-            (c) => c.name.toLowerCase() === parsed.category.toLowerCase(),
-          );
-          if (found) setSelectedCategory(found.id);
-        }}
-      />
+      {isVoiceOpen && (
+        <VoiceInputModal
+          isOpen={isVoiceOpen}
+          onClose={() => setIsVoiceOpen(false)}
+          onApplyData={(parsed) => {
+            setRawAmount(parsed.amount.toString());
+            setNote(parsed.merchant);
+            const found = TRANSACTION_CATEGORIES.find(
+              (c) => c.name.toLowerCase() === parsed.category.toLowerCase(),
+            );
+            if (found) setSelectedCategory(found.id);
+          }}
+        />
+      )}
     </main>
   );
 };
