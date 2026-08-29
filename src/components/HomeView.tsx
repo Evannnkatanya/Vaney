@@ -38,21 +38,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
     );
   }, [transactions, currentMonthCode]);
 
+  // Helper to recognize savings/tabungan transactions
+  const isTabungTx = (t: Transaction) =>
+    t.type === 'savings' ||
+    t.potType === 'nabung' ||
+    t.categoryName?.toLowerCase().includes('tabung') ||
+    t.title?.toLowerCase().includes('tabung');
+
   const spentHarian = useMemo(() => {
     return currentMonthTransactions
-      .filter((t) => t.type === 'expense' && t.potType === 'harian')
+      .filter((t) => !isTabungTx(t) && t.type === 'expense' && (t.potType === 'harian' || (!t.potType && t.categoryName?.toLowerCase() !== 'tagihan' && t.categoryName?.toLowerCase() !== 'hiburan')))
       .reduce((sum, t) => sum + t.amount, 0);
   }, [currentMonthTransactions]);
 
   const spentBulanan = useMemo(() => {
     return currentMonthTransactions
-      .filter((t) => t.type === 'expense' && t.potType === 'bulanan')
+      .filter((t) => !isTabungTx(t) && t.type === 'expense' && (t.potType === 'bulanan' || (!t.potType && (t.categoryName?.toLowerCase() === 'tagihan' || t.categoryName?.toLowerCase() === 'hiburan'))))
       .reduce((sum, t) => sum + t.amount, 0);
   }, [currentMonthTransactions]);
 
   const collectedNabung = useMemo(() => {
     return currentMonthTransactions
-      .filter((t) => t.type === 'savings' || t.potType === 'nabung')
+      .filter((t) => isTabungTx(t))
       .reduce((sum, t) => sum + t.amount, 0);
   }, [currentMonthTransactions]);
 

@@ -196,8 +196,25 @@ export default function App() {
       })
     );
 
+    const isTabung =
+      newTxData.potType === 'nabung' ||
+      newTxData.type === 'savings' ||
+      newTxData.categoryName?.toLowerCase().includes('tabung') ||
+      newTxData.title?.toLowerCase().includes('tabung');
+
     // 3. Deduct from or add to corresponding pot
-    if (newTxData.potType === 'harian') {
+    if (isTabung) {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-nabung'
+            ? {
+                ...pot,
+                remainingAmount: (pot.remainingAmount || 0) + newTxData.amount,
+              }
+            : pot
+        )
+      );
+    } else if (newTxData.potType === 'harian') {
       setBudgetPots((prev) =>
         prev.map((pot) =>
           pot.id === 'pot-harian'
@@ -215,17 +232,6 @@ export default function App() {
             ? {
                 ...pot,
                 remainingAmount: Math.max(0, pot.remainingAmount - newTxData.amount),
-              }
-            : pot
-        )
-      );
-    } else if (newTxData.potType === 'nabung' || newTxData.type === 'savings') {
-      setBudgetPots((prev) =>
-        prev.map((pot) =>
-          pot.id === 'pot-nabung'
-            ? {
-                ...pot,
-                remainingAmount: (pot.remainingAmount || 0) + newTxData.amount,
               }
             : pot
         )
@@ -254,8 +260,25 @@ export default function App() {
       })
     );
 
+    const isTabung =
+      txToDelete.potType === 'nabung' ||
+      txToDelete.type === 'savings' ||
+      txToDelete.categoryName?.toLowerCase().includes('tabung') ||
+      txToDelete.title?.toLowerCase().includes('tabung');
+
     // Refund budget pot if applicable
-    if (txToDelete.potType === 'harian') {
+    if (isTabung) {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-nabung'
+            ? {
+                ...pot,
+                remainingAmount: Math.max(0, (pot.remainingAmount || 0) - txToDelete.amount),
+              }
+            : pot
+        )
+      );
+    } else if (txToDelete.potType === 'harian') {
       setBudgetPots((prev) =>
         prev.map((pot) =>
           pot.id === 'pot-harian'
@@ -273,17 +296,6 @@ export default function App() {
             ? {
                 ...pot,
                 remainingAmount: Math.min(pot.totalAmount, pot.remainingAmount + txToDelete.amount),
-              }
-            : pot
-        )
-      );
-    } else if (txToDelete.potType === 'nabung' || txToDelete.type === 'savings') {
-      setBudgetPots((prev) =>
-        prev.map((pot) =>
-          pot.id === 'pot-nabung'
-            ? {
-                ...pot,
-                remainingAmount: Math.max(0, (pot.remainingAmount || 0) - txToDelete.amount),
               }
             : pot
         )

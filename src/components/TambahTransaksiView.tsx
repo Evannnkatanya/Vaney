@@ -70,7 +70,13 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
       TRANSACTION_CATEGORIES.find((c) => c.id === selectedCategory) ||
       TRANSACTION_CATEGORIES[0];
 
-    const isSavings = txType === 'savings';
+    const isTabunganCategory =
+      selectedCategory === 'tabungan' ||
+      catObj.name.toLowerCase().includes('tabung') ||
+      note.toLowerCase().includes('tabung') ||
+      potType === 'nabung';
+
+    const isSavings = txType === 'savings' || isTabunganCategory;
 
     const defaultTitle = isSavings
       ? 'Setoran Tabungan & Investasi'
@@ -94,7 +100,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
     onSaveTransaction({
       title,
       amount: amountVal,
-      type: txType,
+      type: isSavings ? 'savings' : 'expense',
       date,
       categoryName: isSavings ? 'Tabungan & Investasi' : catObj.name,
       categoryIcon: isSavings ? 'savings' : catObj.icon,
@@ -369,7 +375,14 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
                   <button
                     key={cat.id}
                     type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      if (cat.id === 'tabungan') {
+                        setPotType('nabung');
+                      } else if (potType === 'nabung') {
+                        setPotType('harian');
+                      }
+                    }}
                     className={`flex flex-col items-center justify-center p-3 rounded-[18px] transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-[#406651] text-[#ffffff] shadow-md shadow-[#406651]/20 scale-102'
@@ -513,6 +526,17 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
                   }`}
                 >
                   Bulanan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPotType('nabung')}
+                  className={`flex-1 py-2 rounded-[12px] text-xs font-semibold transition-all cursor-pointer ${
+                    potType === 'nabung'
+                      ? 'bg-[#685d4c] text-[#ffffff] shadow-sm'
+                      : 'text-[#414843] hover:bg-[#e2e3e1]/50'
+                  }`}
+                >
+                  Tabungan
                 </button>
               </div>
             </div>
