@@ -1,0 +1,352 @@
+import React, { useState, useEffect } from 'react';
+import {
+  INITIAL_ACCOUNTS,
+  INITIAL_BUDGET_POTS,
+  INITIAL_CATEGORY_MAPPINGS,
+  INITIAL_TRANSACTIONS,
+} from './data/initialData';
+import {
+  Account,
+  BudgetPot,
+  CategoryMapping,
+  TabType,
+  Transaction,
+} from './types';
+import { TopAppBar } from './components/TopAppBar';
+import { BottomNavBar } from './components/BottomNavBar';
+import { DesktopSidebar } from './components/DesktopSidebar';
+import { HomeView } from './components/HomeView';
+import { JatahView } from './components/JatahView';
+import { TambahTransaksiView } from './components/TambahTransaksiView';
+import { LaporanView } from './components/LaporanView';
+import { AkunKeuanganView } from './components/AkunKeuanganView';
+import { ModalAddAccount } from './components/ModalAddAccount';
+import { ModalAddCategory } from './components/ModalAddCategory';
+import { NotificationModal } from './components/NotificationModal';
+import { TransactionDetailModal } from './components/TransactionDetailModal';
+import { AccountDetailModal } from './components/AccountDetailModal';
+
+export default function App() {
+  const [currentTab, setCurrentTab] = useState<TabType>('home');
+  const [prevTab, setPrevTab] = useState<TabType>('home');
+
+  // Core data states with localStorage initialization
+  const [accounts, setAccounts] = useState<Account[]>(() => {
+    const saved = localStorage.getItem('vaney_accounts');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading accounts:', e);
+      }
+    }
+    return INITIAL_ACCOUNTS;
+  });
+
+  const [budgetPots, setBudgetPots] = useState<BudgetPot[]>(() => {
+    const saved = localStorage.getItem('vaney_budget_pots');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading budget pots:', e);
+      }
+    }
+    return INITIAL_BUDGET_POTS;
+  });
+
+  const [categoryMappings, setCategoryMappings] = useState<CategoryMapping[]>(() => {
+    const saved = localStorage.getItem('vaney_category_mappings');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading category mappings:', e);
+      }
+    }
+    return INITIAL_CATEGORY_MAPPINGS;
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('vaney_transactions');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading transactions:', e);
+      }
+    }
+    return INITIAL_TRANSACTIONS;
+  });
+
+  // Modals state
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+
+  // Sync state changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('vaney_accounts', JSON.stringify(accounts));
+  }, [accounts]);
+
+  useEffect(() => {
+    localStorage.setItem('vaney_budget_pots', JSON.stringify(budgetPots));
+  }, [budgetPots]);
+
+  useEffect(() => {
+    localStorage.setItem('vaney_category_mappings', JSON.stringify(categoryMappings));
+  }, [categoryMappings]);
+
+  useEffect(() => {
+    localStorage.setItem('vaney_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  // Tab change handler with history tracking
+  const handleTabChange = (newTab: TabType) => {
+    setPrevTab(currentTab);
+    setCurrentTab(newTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Add new transaction
+  const handleSaveTransaction = (newTxData: Omit<Transaction, 'id' | 'timeStr'>) => {
+    const newId = `tx-${Date.now()}`;
+    const newTx: Transaction = {
+      ...newTxData,
+      id: newId,
+      timeStr: 'Baru saja',
+    };
+
+    // 1. Update transactions
+    setTransactions((prev) => [newTx, ...prev]);
+
+    // 2. Deduct from account
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        if (acc.id === newTxData.accountId) {
+          return {
+            ...acc,
+            balance:
+              newTxData.type === 'expense'
+                ? acc.balance - newTxData.amount
+                : acc.balance + newTxData.amount,
+          };
+        }
+        return acc;
+      })
+    );
+
+    // 3. Deduct from corresponding pot if allocated
+    if (newTxData.potType === 'harian') {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-harian'
+            ? {
+                ...pot,
+                remainingAmount: Math.max(0, pot.remainingAmount - newTxData.amount),
+              }
+            : pot
+        )
+      );
+    } else if (newTxData.potType === 'bulanan') {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-bulanan'
+            ? {
+                ...pot,
+                remainingAmount: Math.max(0, pot.remainingAmount - newTxData.amount),
+              }
+            : pot
+        )
+      );
+    }
+  };
+
+  // Delete transaction
+  const handleDeleteTransaction = (id: string) => {
+    const txToDelete = transactions.find((t) => t.id === id);
+    if (!txToDelete) return;
+
+    // Refund account
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        if (acc.id === txToDelete.accountId) {
+          return {
+            ...acc,
+            balance:
+              txToDelete.type === 'expense'
+                ? acc.balance + txToDelete.amount
+                : acc.balance - txToDelete.amount,
+          };
+        }
+        return acc;
+      })
+    );
+
+    // Refund pot
+    if (txToDelete.potType === 'harian') {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-harian'
+            ? {
+                ...pot,
+                remainingAmount: pot.remainingAmount + txToDelete.amount,
+              }
+            : pot
+        )
+      );
+    } else if (txToDelete.potType === 'bulanan') {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-bulanan'
+            ? {
+                ...pot,
+                remainingAmount: pot.remainingAmount + txToDelete.amount,
+              }
+            : pot
+        )
+      );
+    }
+
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Add Account
+  const handleSaveAccount = (newAccountData: Omit<Account, 'id'>) => {
+    const newId = `acc-${Date.now()}`;
+    const newAccount: Account = {
+      ...newAccountData,
+      id: newId,
+    };
+    setAccounts((prev) => [...prev, newAccount]);
+  };
+
+  // Update Account Balance
+  const handleUpdateAccountBalance = (accountId: string, newBalance: number) => {
+    setAccounts((prev) =>
+      prev.map((acc) => (acc.id === accountId ? { ...acc, balance: newBalance } : acc))
+    );
+  };
+
+  // Delete Account
+  const handleDeleteAccount = (accountId: string) => {
+    setAccounts((prev) => prev.filter((acc) => acc.id !== accountId));
+  };
+
+  // Add Category
+  const handleSaveCategory = (newCatData: Omit<CategoryMapping, 'id'>) => {
+    const newId = `cat-${Date.now()}`;
+    const newCat: CategoryMapping = {
+      ...newCatData,
+      id: newId,
+    };
+    setCategoryMappings((prev) => [...prev, newCat]);
+  };
+
+  // Delete Category
+  const handleDeleteCategory = (id: string) => {
+    setCategoryMappings((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  // Total balance for Home card (Net liquid assets)
+  const homeTotalBalance = accounts
+    .filter((a) => !a.isCredit && a.balance > 0)
+    .reduce((sum, a) => sum + a.balance, 0);
+
+  return (
+    <div className="min-h-screen bg-[#f9f9f7] text-[#1a1c1b] flex flex-col md:pl-64 transition-all duration-300 pb-20 md:pb-8">
+      {/* Desktop Sidebar (visible on md+) */}
+      <DesktopSidebar
+        currentTab={currentTab}
+        onChangeTab={handleTabChange}
+        onOpenAddTransaction={() => handleTabChange('tambah')}
+      />
+
+      {/* Top App Bar */}
+      <TopAppBar
+        currentTab={currentTab}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
+        onAvatarClick={() => handleTabChange('profil')}
+        onBack={() => handleTabChange(prevTab || 'home')}
+      />
+
+      {/* View Switcher */}
+      <div className="flex-1 w-full">
+        {currentTab === 'home' && (
+          <HomeView
+            totalBalance={homeTotalBalance > 0 ? homeTotalBalance : 15450000}
+            pots={budgetPots}
+            transactions={transactions}
+            onNavigate={handleTabChange}
+            onSelectTransaction={(tx) => setSelectedTransaction(tx)}
+            onOpenAddTransaction={() => handleTabChange('tambah')}
+          />
+        )}
+
+        {currentTab === 'jatah' && (
+          <JatahView
+            categories={categoryMappings}
+            onOpenAddCategory={() => setIsAddCategoryOpen(true)}
+            onDeleteCategory={handleDeleteCategory}
+          />
+        )}
+
+        {currentTab === 'tambah' && (
+          <TambahTransaksiView
+            accounts={accounts}
+            onSaveTransaction={handleSaveTransaction}
+            onCancel={() => handleTabChange(prevTab || 'home')}
+          />
+        )}
+
+        {currentTab === 'laporan' && <LaporanView transactions={transactions} />}
+
+        {currentTab === 'profil' && (
+          <AkunKeuanganView
+            accounts={accounts}
+            onOpenAddAccount={() => setIsAddAccountOpen(true)}
+            onSelectAccount={(acc) => setSelectedAccount(acc)}
+          />
+        )}
+      </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <BottomNavBar currentTab={currentTab} onChangeTab={handleTabChange} />
+
+      {/* Modals & Drawers */}
+      <ModalAddAccount
+        isOpen={isAddAccountOpen}
+        onClose={() => setIsAddAccountOpen(false)}
+        onSaveAccount={handleSaveAccount}
+      />
+
+      <ModalAddCategory
+        isOpen={isAddCategoryOpen}
+        onClose={() => setIsAddCategoryOpen(false)}
+        onSaveCategory={handleSaveCategory}
+      />
+
+      <NotificationModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
+
+      <TransactionDetailModal
+        transaction={selectedTransaction}
+        accounts={accounts}
+        onClose={() => setSelectedTransaction(null)}
+        onDeleteTransaction={handleDeleteTransaction}
+      />
+
+      <AccountDetailModal
+        account={selectedAccount}
+        transactions={transactions}
+        onClose={() => setSelectedAccount(null)}
+        onUpdateBalance={handleUpdateAccountBalance}
+        onDeleteAccount={handleDeleteAccount}
+      />
+    </div>
+  );
+}

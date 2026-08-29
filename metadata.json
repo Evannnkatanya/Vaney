@@ -1,0 +1,6 @@
+{
+  "name": "Vaney - Financial Wellness",
+  "description": "Aplikasi keuangan berbasis Organic Minimalism untuk kelola multi-akun, alokasi jatah, transaksi cerdas, dan laporan keuangan yang tenang.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
