@@ -187,16 +187,16 @@ export default function App() {
           return {
             ...acc,
             balance:
-              newTxData.type === 'expense'
-                ? acc.balance - newTxData.amount
-                : acc.balance + newTxData.amount,
+              newTxData.type === 'income'
+                ? acc.balance + newTxData.amount
+                : acc.balance - newTxData.amount,
           };
         }
         return acc;
       })
     );
 
-    // 3. Deduct from corresponding pot if allocated
+    // 3. Deduct from or add to corresponding pot
     if (newTxData.potType === 'harian') {
       setBudgetPots((prev) =>
         prev.map((pot) =>
@@ -219,6 +219,17 @@ export default function App() {
             : pot
         )
       );
+    } else if (newTxData.potType === 'nabung' || newTxData.type === 'savings') {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-nabung'
+            ? {
+                ...pot,
+                remainingAmount: (pot.remainingAmount || 0) + newTxData.amount,
+              }
+            : pot
+        )
+      );
     }
   };
 
@@ -234,9 +245,9 @@ export default function App() {
           return {
             ...acc,
             balance:
-              txToDelete.type === 'expense'
-                ? acc.balance + txToDelete.amount
-                : acc.balance - txToDelete.amount,
+              txToDelete.type === 'income'
+                ? acc.balance - txToDelete.amount
+                : acc.balance + txToDelete.amount,
           };
         }
         return acc;
@@ -262,6 +273,17 @@ export default function App() {
             ? {
                 ...pot,
                 remainingAmount: Math.min(pot.totalAmount, pot.remainingAmount + txToDelete.amount),
+              }
+            : pot
+        )
+      );
+    } else if (txToDelete.potType === 'nabung' || txToDelete.type === 'savings') {
+      setBudgetPots((prev) =>
+        prev.map((pot) =>
+          pot.id === 'pot-nabung'
+            ? {
+                ...pot,
+                remainingAmount: Math.max(0, (pot.remainingAmount || 0) - txToDelete.amount),
               }
             : pot
         )
@@ -352,6 +374,7 @@ export default function App() {
           {currentTab === 'home' && (
             <HomeView
               totalBalance={homeTotalBalance}
+              accounts={accounts}
               pots={budgetPots}
               transactions={transactions}
               onNavigate={handleTabChange}

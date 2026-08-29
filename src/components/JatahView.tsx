@@ -15,8 +15,7 @@ import {
   Sparkles,
   TrendingUp,
   Info,
-  Calendar,
-  AlertCircle,
+  PiggyBank,
 } from 'lucide-react';
 
 type JatahSubTab = 'ringkasan' | 'persentase' | 'kategori' | 'analisis';
@@ -45,7 +44,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
   const potBulanan = budgetPots.find((p) => p.id === 'pot-bulanan') || budgetPots[1];
   const potNabung = budgetPots.find((p) => p.id === 'pot-nabung') || budgetPots[2];
 
-  // Derived total allocation from current budgetPots
+  // Derived total allocation from active budgetPots
   const currentTotalBudget = useMemo(() => {
     return budgetPots.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
   }, [budgetPots]);
@@ -60,7 +59,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [rebalanceMsg, setRebalanceMsg] = useState<string | null>(null);
 
-  // Sync inputs whenever budgetPots change from outside
+  // Sync form inputs with budgetPots
   useEffect(() => {
     if (currentTotalBudget > 0) {
       setTotalBudgetInput(currentTotalBudget.toString());
@@ -78,7 +77,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
   const bulananNominalSetup = Math.round((keinginanPct / 100) * totalBudgetNum);
   const nabungNominalSetup = Math.round((tabunganPct / 100) * totalBudgetNum);
 
-  // Date and Remaining Days in Current Month
+  // Exact Date & Remaining Days in Current Month (Dynamic: 28, 29, 30, or 31)
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonthIdx = now.getMonth();
@@ -87,48 +86,58 @@ export const JatahView: React.FC<JatahViewProps> = ({
   const currentDay = now.getDate();
   const remainingDays = Math.max(1, daysInMonth - currentDay + 1);
 
-  // Filter current month transactions
-  const currentMonthExpenses = useMemo(() => {
+  // Current month transactions
+  const currentMonthTransactions = useMemo(() => {
     return transactions.filter(
-      (t) => t.type === 'expense' && t.date && t.date.startsWith(currentMonthCode)
+      (t) => t.date && t.date.startsWith(currentMonthCode)
     );
   }, [transactions, currentMonthCode]);
 
   // Actual spending per pot in current month
   const spentHarian = useMemo(() => {
-    return currentMonthExpenses
-      .filter((t) => t.potType === 'harian')
+    return currentMonthTransactions
+      .filter((t) => t.type === 'expense' && t.potType === 'harian')
       .reduce((sum, t) => sum + t.amount, 0);
-  }, [currentMonthExpenses]);
+  }, [currentMonthTransactions]);
 
   const spentBulanan = useMemo(() => {
-    return currentMonthExpenses
-      .filter((t) => t.potType === 'bulanan')
+    return currentMonthTransactions
+      .filter((t) => t.type === 'expense' && t.potType === 'bulanan')
       .reduce((sum, t) => sum + t.amount, 0);
-  }, [currentMonthExpenses]);
+  }, [currentMonthTransactions]);
+
+  // Savings deposits into Tabungan Pot in current month
+  const collectedNabung = useMemo(() => {
+    return currentMonthTransactions
+      .filter((t) => t.type === 'savings' || t.potType === 'nabung')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthTransactions]);
 
   const totalMonthExpense = useMemo(() => {
-    return currentMonthExpenses.reduce((sum, t) => sum + t.amount, 0);
-  }, [currentMonthExpenses]);
+    return currentMonthTransactions
+      .filter((t) => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthTransactions]);
 
   // Allocations from active budgetPots
   const harianAlloc = potHarian?.totalAmount || 0;
   const bulananAlloc = potBulanan?.totalAmount || 0;
   const nabungAlloc = potNabung?.totalAmount || 0;
 
-  // Dynamic Sisa Saldo per pot
+  // Dynamic Pot Balances
   const remainingHarian = Math.max(0, harianAlloc - spentHarian);
   const remainingBulanan = Math.max(0, bulananAlloc - spentBulanan);
-  const remainingNabung = nabungAlloc;
 
-  // Percentages spent
+  // Percentages
   const percentHarianSpent =
     harianAlloc > 0 ? Math.min(100, Math.round((spentHarian / harianAlloc) * 100)) : 0;
   const percentBulananSpent =
     bulananAlloc > 0 ? Math.min(100, Math.round((spentBulanan / bulananAlloc) * 100)) : 0;
-  const percentNabungSpent = 0;
+  const percentNabungCollected =
+    nabungAlloc > 0 ? Math.min(100, Math.round((collectedNabung / nabungAlloc) * 100)) : 0;
 
-  // Daily Allowance Calculation
+  // Dynamic Daily Allowance Calculation:
+  // Jatah Harian Berikutnya = Sisa Saldo Pot Harian / Sisa Hari (termasuk hari ini)
   const dailyAllowance =
     harianAlloc > 0 ? Math.round(remainingHarian / remainingDays) : 0;
 
@@ -231,7 +240,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
         name: `Tabungan & Investasi (${tabunganPct}%)`,
         percentage: tabunganPct,
         totalAmount: nabungNominalSetup,
-        remainingAmount: nabungNominalSetup,
+        remainingAmount: collectedNabung,
         icon: 'trending_up',
         colorClass: 'bg-[#685d4c]',
         bgTrackClass: 'bg-[#f0e0cb]/30',
@@ -250,9 +259,9 @@ export const JatahView: React.FC<JatahViewProps> = ({
       setActiveSubTab('persentase');
       return;
     }
-    const msg = `Jatah harian telah dirata-ulang: ${formatRupiah(
+    const msg = `Jatah harian telah disesuaikan: ${formatRupiah(
       dailyAllowance
-    )} / hari untuk sisa ${remainingDays} hari di bulan ini.`;
+    )} / hari (dari sisa ${formatRupiah(remainingHarian)} ÷ ${remainingDays} hari tersisa).`;
     setRebalanceMsg(msg);
   };
 
@@ -350,7 +359,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* TAB 1: RINGKASAN (Overview, Sticky Rata Ulang CTA, Progress Bar Pots)     */}
+      {/* TAB 1: RINGKASAN (Overview, Dynamic Jatah Harian, Progress Bar Pots)     */}
       {/* ========================================================================= */}
       {activeSubTab === 'ringkasan' && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -382,7 +391,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
               </button>
             </div>
           ) : (
-            /* Active Monitoring Banner */
+            /* Active Dynamic Monitoring Banner */
             <div
               id="banner-rata-ulang-jatah"
               className={`rounded-[24px] p-5 sm:p-6 shadow-md transition-all ${
@@ -413,16 +422,20 @@ export const JatahView: React.FC<JatahViewProps> = ({
                       : `Batas Aman Jatah: ${formatRupiah(dailyAllowance)} / Hari`}
                   </h3>
 
-                  <p className="text-xs text-neutral-200/90 max-w-xl">
+                  <p className="text-xs text-neutral-200/90 max-w-xl leading-relaxed">
                     {isHighDailyUsage
                       ? `Anda telah memakai ${percentHarianSpent}% (${formatRupiah(spentHarian)}) dari alokasi ${formatRupiah(
                           harianAlloc
-                        )}. Sisa ${formatRupiah(remainingHarian)} untuk sisa ${remainingDays} hari ke depan.`
-                      : `Sisa saldo jatah harian ${formatRupiah(
+                        )}. Sisa saldo ${formatRupiah(
                           remainingHarian
-                        )} dari alokasi ${formatRupiah(
+                        )} dibagi ${remainingDays} hari tersisa = ${formatRupiah(
+                          dailyAllowance
+                        )} / hari.`
+                      : `${formatRupiah(dailyAllowance)} / hari (dari sisa ${formatRupiah(
+                          remainingHarian
+                        )} ÷ ${remainingDays} hari tersisa bulan ini, total alokasi ${formatRupiah(
                           harianAlloc
-                        )} untuk sisa ${remainingDays} hari di bulan ini.`}
+                        )}).`}
                   </p>
 
                   {rebalanceMsg && (
@@ -456,7 +469,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                   Progress Alokasi Pot Bulan Ini
                 </h3>
                 <p className="text-xs text-neutral-500">
-                  Total Anggaran: {formatRupiah(currentTotalBudget)} • Total Pengeluaran Bulan Ini: {formatRupiah(totalMonthExpense)}
+                  Total Anggaran: {formatRupiah(currentTotalBudget)} • Pengeluaran: {formatRupiah(totalMonthExpense)} • Setoran Tabungan: {formatRupiah(collectedNabung)}
                 </p>
               </div>
               <button
@@ -470,7 +483,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
 
             {/* 3 Main Pot Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 1. Pot Harian */}
+              {/* 1. Pot Harian (Budget Yang Dipakai) */}
               <div className="bg-white rounded-[24px] p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between space-y-4 hover:scale-[1.005] transition-all">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -504,7 +517,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                 </div>
               </div>
 
-              {/* 2. Pot Bulanan */}
+              {/* 2. Pot Bulanan (Budget Yang Dipakai) */}
               <div className="bg-white rounded-[24px] p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between space-y-4 hover:scale-[1.005] transition-all">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -538,17 +551,17 @@ export const JatahView: React.FC<JatahViewProps> = ({
                 </div>
               </div>
 
-              {/* 3. Pot Tabungan */}
+              {/* 3. Pot Tabungan (Target Yang Diisi) */}
               <div className="bg-white rounded-[24px] p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between space-y-4 hover:scale-[1.005] transition-all">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-[#f0e0cb]/40 text-[#685d4c]">
-                      <span className="material-symbols-outlined text-[22px]">trending_up</span>
+                      <span className="material-symbols-outlined text-[22px]">savings</span>
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-[#1a1c1b]">Tabungan & Investasi</h4>
-                      <span className="text-[11px] text-neutral-500">
-                        Target Alokasi {potNabung?.percentage || 20}%
+                      <span className="text-[11px] text-[#685d4c] font-semibold">
+                        Terkumpul {percentNabungCollected}% ({formatRupiah(collectedNabung)})
                       </span>
                     </div>
                   </div>
@@ -562,12 +575,12 @@ export const JatahView: React.FC<JatahViewProps> = ({
                   <div className="w-full h-2.5 rounded-full bg-neutral-100 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500 bg-[#685d4c]"
-                      style={{ width: `${nabungAlloc > 0 ? 100 : 0}%` }}
+                      style={{ width: `${percentNabungCollected}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-[11px] font-semibold text-neutral-600">
-                    <span>Tersimpan: {formatRupiah(remainingNabung)}</span>
-                    <span>Total: {formatRupiah(nabungAlloc)}</span>
+                    <span>Terkumpul: {formatRupiah(collectedNabung)}</span>
+                    <span>Target: {formatRupiah(nabungAlloc)}</span>
                   </div>
                 </div>
               </div>
@@ -581,7 +594,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                 <Info className="w-5 h-5" />
               </div>
               <p className="text-xs text-neutral-600">
-                Ingin mengubah proporsi persentase atau menambah kategori pos belanja?
+                Ingin menambah setoran ke tabungan atau mengubah proporsi persentase?
               </p>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -760,7 +773,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-11 h-11 rounded-full flex items-center justify-center bg-[#685d4c]/15 text-[#685d4c]">
-                    <span className="material-symbols-outlined text-[22px]">trending_up</span>
+                    <span className="material-symbols-outlined text-[22px]">savings</span>
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-bold text-[#685d4c] tracking-tight block">
@@ -773,7 +786,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-sm sm:text-base font-bold text-[#1a1c1b]">Tabungan & Investasi</h4>
-                  <p className="text-xs text-[#717973] mb-3">Dana darurat & tabungan jangka panjang</p>
+                  <p className="text-xs text-[#717973] mb-3">Target tabungan & investasi bulanan</p>
                   <input
                     id="slider-tabungan"
                     type="range"
@@ -801,7 +814,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                 Daftar Kategori & Pot Tujuan
               </h3>
               <p className="text-xs text-[#717973]">
-                {categories.length} Kategori terdaftar sebagai acuan pengeluaran
+                {categories.length} Kategori terdaftar sebagai acuan pengeluaran & tabungan
               </p>
             </div>
           </div>

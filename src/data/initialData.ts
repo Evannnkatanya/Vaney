@@ -179,6 +179,13 @@ export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
     textClass: 'text-[#3f627a]',
   },
   {
+    id: 'tabungan',
+    name: 'Tabungan',
+    icon: 'savings',
+    bgClass: 'bg-[#f0e0cb]/50',
+    textClass: 'text-[#685d4c]',
+  },
+  {
     id: 'lainnya',
     name: 'Lainnya',
     icon: 'more_horiz',

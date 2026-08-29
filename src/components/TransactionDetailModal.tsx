@@ -19,6 +19,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
   const accountObj = accounts.find((a) => a.id === transaction.accountId);
   const isExpense = transaction.type === 'expense';
+  const isSavings = transaction.type === 'savings';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs animate-in fade-in duration-200">
@@ -37,10 +38,12 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
         <div className="flex flex-col items-center justify-center py-4 border-b border-[#f4f4f2]">
           <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 ${transaction.categoryBgClass}`}
+            className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 ${
+              isSavings ? 'bg-[#f0e0cb]/60 text-[#685d4c]' : transaction.categoryBgClass
+            }`}
           >
             <span className="material-symbols-outlined text-[28px]">
-              {transaction.categoryIcon}
+              {isSavings ? 'savings' : transaction.categoryIcon}
             </span>
           </div>
           <h3 className="text-lg font-bold text-[#1a1c1b]">
@@ -48,10 +51,14 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           </h3>
           <p
             className={`text-2xl font-extrabold mt-1 tracking-tight ${
-              isExpense ? 'text-[#ba1a1a]' : 'text-[#406651]'
+              isSavings
+                ? 'text-[#685d4c]'
+                : isExpense
+                ? 'text-[#ba1a1a]'
+                : 'text-[#406651]'
             }`}
           >
-            {isExpense
+            {isExpense || isSavings
               ? `- ${formatRupiah(transaction.amount)}`
               : `+ ${formatRupiah(transaction.amount)}`}
           </p>

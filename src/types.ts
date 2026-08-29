@@ -52,7 +52,7 @@ export interface Transaction {
   id: string;
   title: string;
   amount: number;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'savings';
   date: string;
   timeStr: string;
   categoryName: string;
@@ -60,7 +60,7 @@ export interface Transaction {
   categoryBgClass: string;
   categoryTextClass: string;
   accountId: string;
-  potType: 'tidak' | 'harian' | 'bulanan';
+  potType: 'tidak' | 'harian' | 'bulanan' | 'nabung';
   note?: string;
 }
 
