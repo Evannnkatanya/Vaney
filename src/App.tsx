@@ -364,6 +364,7 @@ export default function App() {
             <JatahView
               categories={categoryMappings}
               budgetPots={budgetPots}
+              transactions={transactions}
               onUpdateBudgetPots={(newPots) => setBudgetPots(newPots)}
               onOpenAddCategory={() => setIsAddCategoryOpen(true)}
               onDeleteCategory={handleDeleteCategory}

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { formatRupiah } from '../data/initialData';
-import { AllocationHistory, BudgetPot, CategoryMapping } from '../types';
+import { BudgetPot, CategoryMapping, Transaction } from '../types';
 import {
   Check,
   Sliders,
@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Info,
   Calendar,
+  AlertCircle,
 } from 'lucide-react';
 
 type JatahSubTab = 'ringkasan' | 'persentase' | 'kategori' | 'analisis';
@@ -23,6 +24,7 @@ type JatahSubTab = 'ringkasan' | 'persentase' | 'kategori' | 'analisis';
 interface JatahViewProps {
   categories: CategoryMapping[];
   budgetPots: BudgetPot[];
+  transactions: Transaction[];
   onUpdateBudgetPots: (newPots: BudgetPot[]) => void;
   onOpenAddCategory: () => void;
   onDeleteCategory: (id: string) => void;
@@ -31,6 +33,7 @@ interface JatahViewProps {
 export const JatahView: React.FC<JatahViewProps> = ({
   categories,
   budgetPots,
+  transactions,
   onUpdateBudgetPots,
   onOpenAddCategory,
   onDeleteCategory,
@@ -42,52 +45,161 @@ export const JatahView: React.FC<JatahViewProps> = ({
   const potBulanan = budgetPots.find((p) => p.id === 'pot-bulanan') || budgetPots[1];
   const potNabung = budgetPots.find((p) => p.id === 'pot-nabung') || budgetPots[2];
 
-  const initialTotalBudget = budgetPots.reduce((sum, p) => sum + p.totalAmount, 0);
+  // Derived total allocation from current budgetPots
+  const currentTotalBudget = useMemo(() => {
+    return budgetPots.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+  }, [budgetPots]);
 
-  // Setup Persentase State
-  const [totalBudgetInput, setTotalBudgetInput] = useState<string>(
-    initialTotalBudget > 0 ? initialTotalBudget.toString() : '5000000'
-  );
+  // Setup Persentase Form State
+  const [totalBudgetInput, setTotalBudgetInput] = useState<string>(() => {
+    return currentTotalBudget > 0 ? currentTotalBudget.toString() : '5000000';
+  });
   const [kebutuhanPct, setKebutuhanPct] = useState<number>(potHarian?.percentage || 50);
   const [keinginanPct, setKeinginanPct] = useState<number>(potBulanan?.percentage || 30);
   const [tabunganPct, setTabunganPct] = useState<number>(potNabung?.percentage || 20);
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [rebalanceMsg, setRebalanceMsg] = useState<string | null>(null);
 
+  // Sync inputs whenever budgetPots change from outside
+  useEffect(() => {
+    if (currentTotalBudget > 0) {
+      setTotalBudgetInput(currentTotalBudget.toString());
+    }
+    if (potHarian?.percentage !== undefined) setKebutuhanPct(potHarian.percentage);
+    if (potBulanan?.percentage !== undefined) setKeinginanPct(potBulanan.percentage);
+    if (potNabung?.percentage !== undefined) setTabunganPct(potNabung.percentage);
+  }, [currentTotalBudget, potHarian?.percentage, potBulanan?.percentage, potNabung?.percentage]);
+
   const totalBudgetNum = parseInt(totalBudgetInput.replace(/\D/g, ''), 10) || 0;
   const totalPct = kebutuhanPct + keinginanPct + tabunganPct;
 
-  // Real-time calculations
-  const harianNominal = Math.round((kebutuhanPct / 100) * totalBudgetNum);
-  const bulananNominal = Math.round((keinginanPct / 100) * totalBudgetNum);
-  const nabungNominal = Math.round((tabunganPct / 100) * totalBudgetNum);
+  // Real-time calculations for "Atur Persentase" tab
+  const harianNominalSetup = Math.round((kebutuhanPct / 100) * totalBudgetNum);
+  const bulananNominalSetup = Math.round((keinginanPct / 100) * totalBudgetNum);
+  const nabungNominalSetup = Math.round((tabunganPct / 100) * totalBudgetNum);
 
-  // Rebalance calculations
+  // Date and Remaining Days in Current Month
   const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const currentYear = now.getFullYear();
+  const currentMonthIdx = now.getMonth();
+  const currentMonthCode = `${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}`;
+  const daysInMonth = new Date(currentYear, currentMonthIdx + 1, 0).getDate();
   const currentDay = now.getDate();
   const remainingDays = Math.max(1, daysInMonth - currentDay + 1);
-  const currentHarianRemaining = potHarian?.remainingAmount ?? harianNominal;
-  const currentHarianTotal = potHarian?.totalAmount || harianNominal || 1;
-  const dailyAllowance = Math.round(currentHarianRemaining / remainingDays);
-  const usedHarianPct = Math.min(
-    100,
-    Math.max(0, Math.round(((currentHarianTotal - currentHarianRemaining) / currentHarianTotal) * 100))
-  );
-  const isHighDailyUsage = usedHarianPct >= 80;
 
-  // History bars for analysis
-  const historyData: AllocationHistory[] = [
-    { month: 'Okt', alokasi: 80, realisasi: 75 },
-    { month: 'Nov', alokasi: 80, realisasi: 85 },
-    { month: 'Des', alokasi: 80, realisasi: 60 },
-  ];
+  // Filter current month transactions
+  const currentMonthExpenses = useMemo(() => {
+    return transactions.filter(
+      (t) => t.type === 'expense' && t.date && t.date.startsWith(currentMonthCode)
+    );
+  }, [transactions, currentMonthCode]);
 
-  // Save budget configuration
+  // Actual spending per pot in current month
+  const spentHarian = useMemo(() => {
+    return currentMonthExpenses
+      .filter((t) => t.potType === 'harian')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthExpenses]);
+
+  const spentBulanan = useMemo(() => {
+    return currentMonthExpenses
+      .filter((t) => t.potType === 'bulanan')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthExpenses]);
+
+  const totalMonthExpense = useMemo(() => {
+    return currentMonthExpenses.reduce((sum, t) => sum + t.amount, 0);
+  }, [currentMonthExpenses]);
+
+  // Allocations from active budgetPots
+  const harianAlloc = potHarian?.totalAmount || 0;
+  const bulananAlloc = potBulanan?.totalAmount || 0;
+  const nabungAlloc = potNabung?.totalAmount || 0;
+
+  // Dynamic Sisa Saldo per pot
+  const remainingHarian = Math.max(0, harianAlloc - spentHarian);
+  const remainingBulanan = Math.max(0, bulananAlloc - spentBulanan);
+  const remainingNabung = nabungAlloc;
+
+  // Percentages spent
+  const percentHarianSpent =
+    harianAlloc > 0 ? Math.min(100, Math.round((spentHarian / harianAlloc) * 100)) : 0;
+  const percentBulananSpent =
+    bulananAlloc > 0 ? Math.min(100, Math.round((spentBulanan / bulananAlloc) * 100)) : 0;
+  const percentNabungSpent = 0;
+
+  // Daily Allowance Calculation
+  const dailyAllowance =
+    harianAlloc > 0 ? Math.round(remainingHarian / remainingDays) : 0;
+
+  // High usage indicator (only when allocation > 0 and usage >= 80% or out of balance)
+  const isHighDailyUsage =
+    harianAlloc > 0 && (percentHarianSpent >= 80 || remainingHarian <= 0);
+
+  // Dynamic 3-Month History Data for Analysis Tab
+  const dynamic3MonthsData = useMemo(() => {
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    const fullMonthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
+    const result = [];
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(currentYear, currentMonthIdx - i, 1);
+      const y = d.getFullYear();
+      const mIdx = d.getMonth();
+      const mCode = `${y}-${String(mIdx + 1).padStart(2, '0')}`;
+      const shortLabel = monthNames[mIdx];
+      const fullLabel = `${fullMonthNames[mIdx]} ${y}`;
+
+      const mExpense = transactions
+        .filter((t) => t.type === 'expense' && t.date && t.date.startsWith(mCode))
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const isCurrent = i === 0;
+      const alokasiVal = isCurrent
+        ? currentTotalBudget
+        : mExpense > 0
+        ? currentTotalBudget
+        : 0;
+
+      result.push({
+        monthCode: mCode,
+        shortLabel,
+        fullLabel,
+        alokasi: alokasiVal,
+        realisasi: mExpense,
+        isCurrent,
+        hasData: mExpense > 0 || (isCurrent && currentTotalBudget > 0),
+      });
+    }
+
+    return result;
+  }, [transactions, currentYear, currentMonthIdx, currentTotalBudget]);
+
+  // Max value for chart scaling
+  const chartMaxAmount = useMemo(() => {
+    const maxVal = Math.max(
+      1,
+      ...dynamic3MonthsData.map((m) => Math.max(m.alokasi, m.realisasi))
+    );
+    return maxVal;
+  }, [dynamic3MonthsData]);
+
+  // Save budget configuration to budgetPots & localStorage
   const handleSaveBudget = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (totalBudgetNum <= 0) {
-      alert('Mohon masukkan total anggaran bulanan yang valid.');
+      alert('Mohon masukkan total anggaran bulanan yang valid (lebih dari Rp 0).');
+      return;
+    }
+
+    if (totalPct !== 100) {
+      alert('Total persentase alokasi harus berjumlah tepat 100%.');
       return;
     }
 
@@ -96,8 +208,8 @@ export const JatahView: React.FC<JatahViewProps> = ({
         id: 'pot-harian',
         name: `Kebutuhan Harian (${kebutuhanPct}%)`,
         percentage: kebutuhanPct,
-        totalAmount: harianNominal,
-        remainingAmount: harianNominal,
+        totalAmount: harianNominalSetup,
+        remainingAmount: Math.max(0, harianNominalSetup - spentHarian),
         icon: 'coffee',
         colorClass: 'bg-[#3f627a]',
         bgTrackClass: 'bg-[#c8e6ff]/30',
@@ -107,8 +219,8 @@ export const JatahView: React.FC<JatahViewProps> = ({
         id: 'pot-bulanan',
         name: `Kebutuhan Bulanan (${keinginanPct}%)`,
         percentage: keinginanPct,
-        totalAmount: bulananNominal,
-        remainingAmount: bulananNominal,
+        totalAmount: bulananNominalSetup,
+        remainingAmount: Math.max(0, bulananNominalSetup - spentBulanan),
         icon: 'home_work',
         colorClass: 'bg-[#406651]',
         bgTrackClass: 'bg-[#c1edd1]/30',
@@ -118,8 +230,8 @@ export const JatahView: React.FC<JatahViewProps> = ({
         id: 'pot-nabung',
         name: `Tabungan & Investasi (${tabunganPct}%)`,
         percentage: tabunganPct,
-        totalAmount: nabungNominal,
-        remainingAmount: nabungNominal,
+        totalAmount: nabungNominalSetup,
+        remainingAmount: nabungNominalSetup,
         icon: 'trending_up',
         colorClass: 'bg-[#685d4c]',
         bgTrackClass: 'bg-[#f0e0cb]/30',
@@ -129,12 +241,18 @@ export const JatahView: React.FC<JatahViewProps> = ({
 
     onUpdateBudgetPots(updatedPots);
     setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 2000);
+    setTimeout(() => setShowSavedToast(false), 2200);
   };
 
-  // Rebalance daily allowance
+  // Rebalance daily allowance calculation
   const handleRebalanceDaily = () => {
-    const msg = `Jatah harian telah dirata-ulang: ${formatRupiah(dailyAllowance)} / hari untuk sisa ${remainingDays} hari bulan ini.`;
+    if (harianAlloc <= 0) {
+      setActiveSubTab('persentase');
+      return;
+    }
+    const msg = `Jatah harian telah dirata-ulang: ${formatRupiah(
+      dailyAllowance
+    )} / hari untuk sisa ${remainingDays} hari di bulan ini.`;
     setRebalanceMsg(msg);
   };
 
@@ -145,10 +263,10 @@ export const JatahView: React.FC<JatahViewProps> = ({
     >
       {/* Toast Notification */}
       {showSavedToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#406651] text-white px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#406651] text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300 border border-emerald-400/40">
           <Check className="w-5 h-5 text-emerald-300" />
-          <span className="text-sm font-semibold">
-            Pengaturan Jatah Bulanan Berhasil Disimpan!
+          <span className="text-sm font-bold">
+            Pengaturan Jatah Bulanan Berhasil Disimpan & Diterapkan!
           </span>
         </div>
       )}
@@ -236,70 +354,99 @@ export const JatahView: React.FC<JatahViewProps> = ({
       {/* ========================================================================= */}
       {activeSubTab === 'ringkasan' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Sticky / Top Smart Banner for Rata Ulang Jatah Harian */}
-          <div
-            id="banner-rata-ulang-jatah"
-            className={`rounded-[24px] p-5 sm:p-6 shadow-md transition-all ${
-              isHighDailyUsage
-                ? 'bg-gradient-to-r from-rose-950 via-rose-900 to-amber-950 text-white border border-rose-700/50'
-                : 'bg-gradient-to-r from-emerald-950 via-teal-950 to-[#284e3a] text-white border border-emerald-800/40'
-            }`}
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1.5">
+          {/* Smart Sticky Banner for Rata Ulang Jatah Harian */}
+          {harianAlloc === 0 ? (
+            /* Onboarding State if total budget is not set yet */
+            <div className="rounded-[24px] p-5 sm:p-6 bg-gradient-to-r from-neutral-900 to-neutral-800 text-white shadow-md border border-neutral-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  {isHighDailyUsage ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-rose-500/30 border border-rose-400 text-rose-200 text-[10px] font-extrabold tracking-wider uppercase flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      Pemakaian Jatah Harian {usedHarianPct}%
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold tracking-wider uppercase flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      Status Jatah Terkendali
-                    </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    Setup Anggaran
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Belum Ada Anggaran yang Diterapkan
+                </h3>
+                <p className="text-xs text-neutral-300 max-w-xl">
+                  Tentukan total pemasukan dan pembagian persentase pot Anda di tab <strong>Atur Persentase</strong> untuk mulai memantau jatah harian dan bulanan secara akurat.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('persentase')}
+                className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 shrink-0 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sliders className="w-4 h-4" />
+                <span>Atur Anggaran Sekarang</span>
+              </button>
+            </div>
+          ) : (
+            /* Active Monitoring Banner */
+            <div
+              id="banner-rata-ulang-jatah"
+              className={`rounded-[24px] p-5 sm:p-6 shadow-md transition-all ${
+                isHighDailyUsage
+                  ? 'bg-gradient-to-r from-rose-950 via-rose-900 to-amber-950 text-white border border-rose-700/50'
+                  : 'bg-gradient-to-r from-emerald-950 via-teal-950 to-[#284e3a] text-white border border-emerald-800/40'
+              }`}
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    {isHighDailyUsage ? (
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-500/30 border border-rose-400 text-rose-200 text-[10px] font-extrabold tracking-wider uppercase flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Pemakaian Jatah Harian {percentHarianSpent}%
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold tracking-wider uppercase flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        Status Jatah Aman ({percentHarianSpent}% Terpakai)
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
+                    {isHighDailyUsage
+                      ? 'Peringatan: Jatah Harian Mendekati Batas!'
+                      : `Batas Aman Jatah: ${formatRupiah(dailyAllowance)} / Hari`}
+                  </h3>
+
+                  <p className="text-xs text-neutral-200/90 max-w-xl">
+                    {isHighDailyUsage
+                      ? `Anda telah memakai ${percentHarianSpent}% (${formatRupiah(spentHarian)}) dari alokasi ${formatRupiah(
+                          harianAlloc
+                        )}. Sisa ${formatRupiah(remainingHarian)} untuk sisa ${remainingDays} hari ke depan.`
+                      : `Sisa saldo jatah harian ${formatRupiah(
+                          remainingHarian
+                        )} dari alokasi ${formatRupiah(
+                          harianAlloc
+                        )} untuk sisa ${remainingDays} hari di bulan ini.`}
+                  </p>
+
+                  {rebalanceMsg && (
+                    <div className="mt-2 p-2.5 rounded-xl bg-white/10 backdrop-blur-xs border border-white/20 text-white text-xs font-semibold animate-in fade-in">
+                      {rebalanceMsg}
+                    </div>
                   )}
                 </div>
 
-                <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
-                  {isHighDailyUsage
-                    ? 'Peringatan: Jatah Harian Mendekati Batas!'
-                    : 'Batas Aman Jatah Harian Anda'}
-                </h3>
-
-                <p className="text-xs text-neutral-200/90 max-w-xl">
-                  {isHighDailyUsage
-                    ? `Anda telah memakai ${usedHarianPct}% jatah harian. Rata-ulang sekarang agar sisa saldo ${formatRupiah(
-                        currentHarianRemaining
-                      )} cukup untuk ${remainingDays} hari ke depan.`
-                    : `Sisa jatah harian ${formatRupiah(
-                        currentHarianRemaining
-                      )} setara dengan batas aman ${formatRupiah(
-                        dailyAllowance
-                      )} / hari untuk sisa ${remainingDays} hari bulan ini.`}
-                </p>
-
-                {rebalanceMsg && (
-                  <div className="mt-2 p-2.5 rounded-xl bg-white/10 backdrop-blur-xs border border-white/20 text-white text-xs font-semibold animate-in fade-in">
-                    {rebalanceMsg}
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={handleRebalanceDaily}
+                  className={`px-5 py-3 rounded-2xl font-bold text-xs shadow-lg transition-all active:scale-95 shrink-0 flex items-center justify-center gap-2 cursor-pointer ${
+                    isHighDailyUsage
+                      ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/30'
+                      : 'bg-emerald-400 hover:bg-emerald-300 text-neutral-950 shadow-emerald-400/30'
+                  }`}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Rata Ulang Sekarang</span>
+                </button>
               </div>
-
-              <button
-                type="button"
-                onClick={handleRebalanceDaily}
-                className={`px-5 py-3 rounded-2xl font-bold text-xs shadow-lg transition-all active:scale-95 shrink-0 flex items-center justify-center gap-2 cursor-pointer ${
-                  isHighDailyUsage
-                    ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/30'
-                    : 'bg-emerald-400 hover:bg-emerald-300 text-neutral-950 shadow-emerald-400/30'
-                }`}
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Rata Ulang Sekarang</span>
-              </button>
             </div>
-          </div>
+          )}
 
           {/* Section Header: Progress Bulan Ini */}
           <div className="space-y-3">
@@ -309,7 +456,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                   Progress Alokasi Pot Bulan Ini
                 </h3>
                 <p className="text-xs text-neutral-500">
-                  Total Anggaran Terdaftar: {formatRupiah(totalBudgetNum)}
+                  Total Anggaran: {formatRupiah(currentTotalBudget)} • Total Pengeluaran Bulan Ini: {formatRupiah(totalMonthExpense)}
                 </p>
               </div>
               <button
@@ -317,61 +464,113 @@ export const JatahView: React.FC<JatahViewProps> = ({
                 onClick={() => setActiveSubTab('persentase')}
                 className="text-xs font-bold text-[#406651] hover:underline cursor-pointer"
               >
-                Edit Alokasi →
+                Ubah Anggaran →
               </button>
             </div>
 
             {/* 3 Main Pot Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {budgetPots.map((pot) => {
-                const total = pot.totalAmount || 1;
-                const remaining = pot.remainingAmount ?? total;
-                const spent = Math.max(0, total - remaining);
-                const percentSpent = Math.min(100, Math.round((spent / total) * 100));
-
-                return (
-                  <div
-                    key={pot.id}
-                    className="bg-white rounded-[24px] p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between space-y-4 hover:scale-[1.005] transition-all"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${pot.bgIconClass}`}
-                        >
-                          <span className="material-symbols-outlined text-[22px]">
-                            {pot.icon}
-                          </span>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-[#1a1c1b]">{pot.name}</h4>
-                          <span className="text-[11px] text-neutral-500">
-                            Terpakai {percentSpent}%
-                          </span>
-                        </div>
-                      </div>
-
-                      <span className="text-xs font-extrabold text-neutral-700 bg-neutral-100 px-2.5 py-1 rounded-full">
-                        {pot.percentage}%
+              {/* 1. Pot Harian */}
+              <div className="bg-white rounded-[24px] p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between space-y-4 hover:scale-[1.005] transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-[#c8e6ff]/40 text-[#3f627a]">
+                      <span className="material-symbols-outlined text-[22px]">coffee</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#1a1c1b]">Kebutuhan Harian</h4>
+                      <span className="text-[11px] text-neutral-500">
+                        Terpakai {percentHarianSpent}% ({formatRupiah(spentHarian)})
                       </span>
                     </div>
+                  </div>
 
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5">
-                      <div className="w-full h-2.5 rounded-full bg-neutral-100 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${pot.colorClass}`}
-                          style={{ width: `${percentSpent}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-[11px] font-semibold text-neutral-500">
-                        <span>Sisa: {formatRupiah(remaining)}</span>
-                        <span>Total: {formatRupiah(pot.totalAmount)}</span>
-                      </div>
+                  <span className="text-xs font-extrabold text-[#3f627a] bg-[#c8e6ff]/30 px-2.5 py-1 rounded-full">
+                    {potHarian?.percentage || 50}%
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="w-full h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 bg-[#3f627a]"
+                      style={{ width: `${percentHarianSpent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] font-semibold text-neutral-600">
+                    <span>Sisa: {formatRupiah(remainingHarian)}</span>
+                    <span>Total: {formatRupiah(harianAlloc)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Pot Bulanan */}
+              <div className="bg-white rounded-[24px] p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between space-y-4 hover:scale-[1.005] transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-[#c1edd1]/40 text-[#406651]">
+                      <span className="material-symbols-outlined text-[22px]">home_work</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#1a1c1b]">Kebutuhan Bulanan</h4>
+                      <span className="text-[11px] text-neutral-500">
+                        Terpakai {percentBulananSpent}% ({formatRupiah(spentBulanan)})
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+
+                  <span className="text-xs font-extrabold text-[#406651] bg-[#c1edd1]/30 px-2.5 py-1 rounded-full">
+                    {potBulanan?.percentage || 30}%
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="w-full h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 bg-[#406651]"
+                      style={{ width: `${percentBulananSpent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] font-semibold text-neutral-600">
+                    <span>Sisa: {formatRupiah(remainingBulanan)}</span>
+                    <span>Total: {formatRupiah(bulananAlloc)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Pot Tabungan */}
+              <div className="bg-white rounded-[24px] p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between space-y-4 hover:scale-[1.005] transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-[#f0e0cb]/40 text-[#685d4c]">
+                      <span className="material-symbols-outlined text-[22px]">trending_up</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#1a1c1b]">Tabungan & Investasi</h4>
+                      <span className="text-[11px] text-neutral-500">
+                        Target Alokasi {potNabung?.percentage || 20}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-extrabold text-[#685d4c] bg-[#f0e0cb]/30 px-2.5 py-1 rounded-full">
+                    {potNabung?.percentage || 20}%
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="w-full h-2.5 rounded-full bg-neutral-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 bg-[#685d4c]"
+                      style={{ width: `${nabungAlloc > 0 ? 100 : 0}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] font-semibold text-neutral-600">
+                    <span>Tersimpan: {formatRupiah(remainingNabung)}</span>
+                    <span>Total: {formatRupiah(nabungAlloc)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -502,7 +701,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                       {kebutuhanPct}%
                     </span>
                     <span className="text-xs font-extrabold text-neutral-800">
-                      {formatRupiah(harianNominal)}
+                      {formatRupiah(harianNominalSetup)}
                     </span>
                   </div>
                 </div>
@@ -535,7 +734,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                       {keinginanPct}%
                     </span>
                     <span className="text-xs font-extrabold text-neutral-800">
-                      {formatRupiah(bulananNominal)}
+                      {formatRupiah(bulananNominalSetup)}
                     </span>
                   </div>
                 </div>
@@ -568,7 +767,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
                       {tabunganPct}%
                     </span>
                     <span className="text-xs font-extrabold text-neutral-800">
-                      {formatRupiah(nabungNominal)}
+                      {formatRupiah(nabungNominalSetup)}
                     </span>
                   </div>
                 </div>
@@ -673,7 +872,7 @@ export const JatahView: React.FC<JatahViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: ANALISIS (Grafik Alokasi vs Realisasi, Tren & Evaluasi)            */}
+      {/* TAB 4: ANALISIS (Grafik Real-Time 3 Bulan, Alokasi vs Realisasi Aktual)   */}
       {/* ========================================================================= */}
       {activeSubTab === 'analisis' && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -683,65 +882,117 @@ export const JatahView: React.FC<JatahViewProps> = ({
           >
             <div className="border-b border-neutral-200/60 pb-3">
               <h3 className="text-base font-bold text-[#1a1c1b]">
-                Tren Alokasi vs Realisasi
+                Tren Alokasi vs Realisasi Riil
               </h3>
               <p className="text-xs text-[#717973] mt-0.5">
-                Perbandingan ketepatan alokasi anggaran dalam 3 bulan terakhir
+                Perbandingan riil anggaran vs total pengeluaran 3 bulan terakhir
               </p>
             </div>
 
             {/* Visual Bar Chart */}
-            <div className="h-56 flex items-end justify-around pt-4 pb-2 px-2 border-b border-[#f4f4f2]">
-              {historyData.map((item) => (
-                <div
-                  key={item.month}
-                  className="flex flex-col items-center gap-1.5 w-1/4 group"
-                >
-                  <div className="flex items-end gap-2 w-full justify-center h-40">
-                    {/* Alokasi bar */}
-                    <div
-                      className="w-6 sm:w-8 bg-[#a6d0b5] rounded-t-full transition-all duration-500 ease-out hover:opacity-90 relative"
-                      style={{ height: `${item.alokasi}%` }}
-                      title={`Alokasi ${item.month}: ${item.alokasi}%`}
-                    />
-                    {/* Realisasi bar */}
-                    <div
-                      className="w-6 sm:w-8 bg-[#406651] rounded-t-full transition-all duration-500 ease-out hover:opacity-90 relative"
-                      style={{ height: `${item.realisasi}%` }}
-                      title={`Realisasi ${item.month}: ${item.realisasi}%`}
-                    />
+            <div className="h-60 flex items-end justify-around pt-6 pb-2 px-2 border-b border-[#f4f4f2]">
+              {dynamic3MonthsData.map((item) => {
+                const alokasiHeight =
+                  chartMaxAmount > 0
+                    ? Math.round((item.alokasi / chartMaxAmount) * 100)
+                    : 0;
+                const realisasiHeight =
+                  chartMaxAmount > 0
+                    ? Math.round((item.realisasi / chartMaxAmount) * 100)
+                    : 0;
+
+                return (
+                  <div
+                    key={item.monthCode}
+                    className="flex flex-col items-center gap-2 w-1/3 group"
+                  >
+                    <div className="flex items-end gap-2 sm:gap-3 w-full justify-center h-44">
+                      {/* Alokasi bar */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-bold text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {formatRupiah(item.alokasi)}
+                        </span>
+                        <div
+                          className="w-5 sm:w-8 bg-[#a6d0b5] rounded-t-xl transition-all duration-500 ease-out hover:opacity-90 relative shadow-2xs"
+                          style={{ height: `${Math.max(item.alokasi > 0 ? 8 : 0, alokasiHeight)}%` }}
+                          title={`Alokasi ${item.fullLabel}: ${formatRupiah(item.alokasi)}`}
+                        />
+                      </div>
+
+                      {/* Realisasi bar */}
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-bold text-neutral-800 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {formatRupiah(item.realisasi)}
+                        </span>
+                        <div
+                          className="w-5 sm:w-8 bg-[#406651] rounded-t-xl transition-all duration-500 ease-out hover:opacity-90 relative shadow-2xs"
+                          style={{ height: `${Math.max(item.realisasi > 0 ? 8 : 0, realisasiHeight)}%` }}
+                          title={`Realisasi ${item.fullLabel}: ${formatRupiah(item.realisasi)}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <span className="text-xs font-bold text-[#414843] block">
+                        {item.shortLabel} {item.isCurrent ? '(Bulan Ini)' : ''}
+                      </span>
+                      <span className="text-[10px] text-neutral-400">
+                        {item.realisasi > 0 ? formatRupiah(item.realisasi) : 'Rp 0'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-xs font-semibold text-[#414843] mt-2">
-                    {item.month}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Chart Legend */}
-            <div className="flex justify-center gap-6 pt-2">
+            <div className="flex justify-center gap-8 pt-2">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#a6d0b5]" />
-                <span className="text-xs font-medium text-[#414843]">Alokasi</span>
+                <div className="w-3.5 h-3.5 rounded-full bg-[#a6d0b5]" />
+                <span className="text-xs font-semibold text-[#414843]">Alokasi Anggaran</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#406651]" />
-                <span className="text-xs font-medium text-[#414843]">Realisasi</span>
+                <div className="w-3.5 h-3.5 rounded-full bg-[#406651]" />
+                <span className="text-xs font-semibold text-[#414843]">Realisasi Pengeluaran</span>
               </div>
             </div>
           </section>
 
-          {/* Evaluasi Card */}
-          <div className="bg-gradient-to-br from-emerald-50 to-[#c1edd1]/30 rounded-[24px] p-5 border border-emerald-200/80 flex items-start gap-4">
+          {/* Evaluasi Card Berdasarkan Rasio Riil */}
+          <div className="bg-gradient-to-br from-emerald-50 to-[#c1edd1]/30 rounded-[24px] p-5 sm:p-6 border border-emerald-200/80 flex items-start gap-4">
             <div className="p-3 rounded-2xl bg-emerald-600 text-white shrink-0 shadow-sm">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <h4 className="text-sm font-bold text-emerald-950">
-                Evaluasi Disiplin Keuangan
+                Evaluasi Disiplin Keuangan Bulan Ini
               </h4>
               <p className="text-xs text-emerald-900 leading-relaxed">
-                Rasio realisasi rata-rata Anda berada di angka yang sehat. Pastikan jatah harian selalu dirata-ulang jika terjadi lonjakan pengeluaran tidak terduga di awal bulan.
+                {currentTotalBudget <= 0 ? (
+                  'Atur total anggaran bulanan Anda di tab Atur Persentase untuk mulai mengevaluasi kesehatan finansial.'
+                ) : totalMonthExpense === 0 ? (
+                  `Belum ada pengeluaran yang dicatat di bulan ini. Seluruh anggaran ${formatRupiah(
+                    currentTotalBudget
+                  )} masih utuh 100%.`
+                ) : totalMonthExpense <= currentTotalBudget * 0.8 ? (
+                  `Pengeluaran bulan ini sangat sehat (baru terpakai ${Math.round(
+                    (totalMonthExpense / currentTotalBudget) * 100
+                  )}% dari total anggaran ${formatRupiah(
+                    currentTotalBudget
+                  )}). Pertahankan kedisiplinan ini!`
+                ) : totalMonthExpense <= currentTotalBudget ? (
+                  `Pengeluaran bulan ini sudah mencapai ${Math.round(
+                    (totalMonthExpense / currentTotalBudget) * 100
+                  )}% (${formatRupiah(totalMonthExpense)} dari ${formatRupiah(
+                    currentTotalBudget
+                  )}). Pantau sisa ${remainingDays} hari ke depan agar tidak melebihi alokasi.`
+                ) : (
+                  `Pengeluaran telah melebihi alokasi anggaran (${Math.round(
+                    (totalMonthExpense / currentTotalBudget) * 100
+                  )}%, overbudget ${formatRupiah(
+                    totalMonthExpense - currentTotalBudget
+                  )}). Segera lakukan rata ulang jatah harian untuk menyeimbangkan kembali sisa dana.`
+                )}
               </p>
             </div>
           </div>
