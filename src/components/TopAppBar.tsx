@@ -1,7 +1,6 @@
 import React from 'react';
 import { USER_AVATAR_URL } from '../data/initialData';
 import { TabType } from '../types';
-import { Check } from 'lucide-react';
 
 interface TopAppBarProps {
   currentTab: TabType;
@@ -9,7 +8,6 @@ interface TopAppBarProps {
   unreadNotificationsCount?: number;
   onAvatarClick?: () => void;
   onBack?: () => void;
-  onSave?: () => void;
 }
 
 export const TopAppBar: React.FC<TopAppBarProps> = ({
@@ -18,7 +16,6 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
   unreadNotificationsCount = 2,
   onAvatarClick,
   onBack,
-  onSave,
 }) => {
   if (currentTab === 'tambah') {
     return (
@@ -37,30 +34,17 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
           </h1>
         </button>
 
-        <div className="flex items-center gap-2">
-          {onSave && (
-            <button
-              id="btn-header-save-tx"
-              type="button"
-              onClick={onSave}
-              className="px-4 py-2 rounded-xl bg-[#406651] hover:bg-[#284e3a] text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-[#406651]/20 active:scale-95 transition-all cursor-pointer"
-            >
-              <Check className="w-4 h-4" />
-              <span>Simpan</span>
-            </button>
-          )}
-          <button
-            id="btn-avatar-header"
-            onClick={onAvatarClick}
-            className="w-9 h-9 rounded-full bg-[#e2e3e1] flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#406651]/30 transition-all cursor-pointer"
-          >
-            <img
-              alt="User Profile"
-              className="w-full h-full object-cover"
-              src={USER_AVATAR_URL}
-            />
-          </button>
-        </div>
+        <button
+          id="btn-avatar-header"
+          onClick={onAvatarClick}
+          className="w-10 h-10 rounded-full bg-[#e2e3e1] flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#406651]/30 transition-all cursor-pointer"
+        >
+          <img
+            alt="User Profile"
+            className="w-full h-full object-cover"
+            src={USER_AVATAR_URL}
+          />
+        </button>
       </header>
     );
   }

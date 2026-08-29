@@ -465,16 +465,6 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
             </div>
           </div>
         </section>
-
-        {/* Save Button */}
-        <button
-          id="btn-submit-save-tx"
-          type="button"
-          onClick={handleSubmit}
-          className="w-full bg-[#406651] text-[#ffffff] font-bold text-base py-4 rounded-[18px] hover:scale-[1.01] active:scale-98 transition-all shadow-[0px_15px_40px_rgba(64,102,81,0.25)] cursor-pointer mt-auto"
-        >
-          Simpan Transaksi
-        </button>
       </div>
 
       {/* Smart Input Modals */}

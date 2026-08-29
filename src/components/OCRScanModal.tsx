@@ -201,36 +201,24 @@ export function OCRScanModal({ isOpen, onClose, onApplyData, onDirectSave }: OCR
       />
 
       <div className="bg-white rounded-t-[32px] sm:rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200 border border-neutral-100 flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
-        {/* Header with Top Simpan Button */}
-        <div className="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between bg-[#f9f9f7] shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 shrink-0">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between bg-[#f9f9f7] shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
               <Camera className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-neutral-900 leading-tight">Scan Struk (OCR)</h2>
-              <p className="text-[10px] text-neutral-500">Mendeteksi total belanja</p>
+              <h2 className="text-base font-bold text-neutral-900">Scan Struk Belanja (OCR)</h2>
+              <p className="text-[11px] text-neutral-500">Mendeteksi total belanja riil otomatis</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDirectSave}
-              disabled={isScanning}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>Simpan</span>
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-full hover:bg-neutral-200/60 text-neutral-500 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-neutral-200/60 text-neutral-500 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Content Body - Fully Scrollable */}
