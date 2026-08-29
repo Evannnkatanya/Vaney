@@ -217,7 +217,7 @@ export const TambahTransaksiView: React.FC<TambahTransaksiViewProps> = ({
           className="w-full bg-[#406651] hover:bg-[#284e3a] text-[#ffffff] font-bold text-sm sm:text-base py-3.5 px-4 rounded-[18px] flex items-center justify-center gap-2 shadow-[0px_8px_20px_rgba(64,102,81,0.25)] hover:scale-[1.01] active:scale-98 transition-all cursor-pointer"
         >
           <span className="material-symbols-outlined text-[20px]">check_circle</span>
-          <span>Simpan Transaksi (Rp {formatNumber(rawAmount)})</span>
+          <span>Simpan Transaksi</span>
         </button>
 
         {/* Smart Input Prominent Action Cards (OCR & Voice) */}
