@@ -220,18 +220,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </div>
       </section>
-
-      {/* Quick Add floating button on mobile */}
-      <div className="md:hidden pt-2 pb-2 flex justify-center">
-        <button
-          id="btn-home-quick-add"
-          onClick={onOpenAddTransaction}
-          className="bg-[#406651] text-[#ffffff] px-6 py-3 rounded-2xl text-sm font-semibold flex items-center gap-2 shadow-[0px_10px_25px_rgba(64,102,81,0.25)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          Catat Pengeluaran Baru
-        </button>
-      </div>
     </main>
   );
 };

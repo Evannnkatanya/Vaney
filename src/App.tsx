@@ -383,6 +383,7 @@ export default function App() {
               accounts={accounts}
               onOpenAddAccount={() => setIsAddAccountOpen(true)}
               onSelectAccount={(acc) => setSelectedAccount(acc)}
+              onUpdateBalance={handleUpdateAccountBalance}
               onResetAllData={handleResetAllData}
             />
           )}

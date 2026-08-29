@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatRupiah } from '../data/initialData';
 import { Account } from '../types';
+import { Edit3, Check, X, Wallet, ArrowUpDown } from 'lucide-react';
 
 interface AkunKeuanganViewProps {
   accounts: Account[];
   onOpenAddAccount: () => void;
   onSelectAccount: (account: Account) => void;
+  onUpdateBalance?: (id: string, newBalance: number) => void;
   onResetAllData?: () => void;
 }
 
@@ -13,10 +15,32 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
   accounts,
   onOpenAddAccount,
   onSelectAccount,
+  onUpdateBalance,
   onResetAllData,
 }) => {
+  // Quick Edit Balance State
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [newBalanceInput, setNewBalanceInput] = useState<string>('');
+
   // Calculate total overall balance (all positive assets + credit)
   const totalNetBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+
+  const handleOpenEditBalance = (e: React.MouseEvent, acc: Account) => {
+    e.stopPropagation();
+    setEditingAccount(acc);
+    setNewBalanceInput(Math.abs(acc.balance).toString());
+  };
+
+  const handleSaveEditedBalance = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount || !onUpdateBalance) return;
+    const cleanNum = parseInt(newBalanceInput.replace(/\D/g, ''), 10);
+    if (!isNaN(cleanNum)) {
+      const finalVal = editingAccount.isCredit ? -Math.abs(cleanNum) : cleanNum;
+      onUpdateBalance(editingAccount.id, finalVal);
+      setEditingAccount(null);
+    }
+  };
 
   return (
     <main
@@ -29,14 +53,14 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
           Akun Keuangan
         </h2>
         <p className="text-sm text-[#414843]">
-          Kelola semua sumber dana Anda dalam satu tampilan yang tenang.
+          Kelola saldo dan semua sumber dana Anda secara langsung.
         </p>
       </div>
 
       {/* Total Balance Card (Bento Style) */}
       <div
         id="card-total-saldo-keseluruhan"
-        className="md:col-span-12 bg-[#ffffff] rounded-[24px] p-6 sm:p-8 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] mb-8 relative overflow-hidden group hover:scale-[1.005] transition-all duration-300"
+        className="md:col-span-12 bg-[#ffffff] rounded-[24px] p-6 sm:p-8 shadow-[0px_10px_30px_rgba(0,0,0,0.04)] mb-6 relative overflow-hidden group hover:scale-[1.005] transition-all duration-300"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[#c1edd1]/20 to-transparent pointer-events-none" />
         <div className="relative z-10 flex flex-col items-center justify-center text-center py-2">
@@ -50,7 +74,14 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
       </div>
 
       {/* Account List Section */}
-      <div className="md:col-span-12 flex flex-col gap-4">
+      <div className="md:col-span-12 flex flex-col gap-3.5">
+        <div className="flex justify-between items-center px-1 mb-1">
+          <h3 className="text-sm font-bold text-[#414843] uppercase tracking-wider">
+            Daftar Rekening & Dompet ({accounts.length})
+          </h3>
+          <span className="text-xs text-neutral-500">Tap kartu untuk detail / Ubah Saldo</span>
+        </div>
+
         {accounts.map((acc) => {
           const isCredit = acc.isCredit || acc.balance < 0;
           return (
@@ -58,11 +89,11 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
               key={acc.id}
               id={`account-card-${acc.id}`}
               onClick={() => onSelectAccount(acc)}
-              className={`bg-[#ffffff] rounded-[24px] p-4 sm:p-5 flex items-center justify-between shadow-[0px_10px_30px_rgba(0,0,0,0.04)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer ${
-                isCredit ? 'border border-[#ffdad6]' : ''
+              className={`bg-[#ffffff] rounded-[24px] p-4 sm:p-5 flex items-center justify-between shadow-[0px_10px_30px_rgba(0,0,0,0.04)] hover:scale-[1.005] active:scale-[0.99] transition-all duration-200 cursor-pointer border border-neutral-100/80 ${
+                isCredit ? 'border-[#ffdad6]' : ''
               }`}
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3.5">
                 <div
                   className={`w-12 h-12 rounded-full ${acc.bgColorClass} flex items-center justify-center shrink-0 shadow-sm`}
                 >
@@ -73,7 +104,7 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
                   </span>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#1a1c1b]">
+                  <h3 className="text-sm sm:text-base font-bold text-[#1a1c1b]">
                     {acc.name}
                   </h3>
                   <p className="text-xs text-[#717973] mt-0.5">
@@ -82,14 +113,27 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
                 </div>
               </div>
 
-              <div className="text-right">
-                <p
-                  className={`text-base sm:text-lg font-bold tracking-tight ${
-                    isCredit ? 'text-[#ba1a1a]' : 'text-[#406651]'
-                  }`}
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p
+                    className={`text-sm sm:text-base font-bold tracking-tight ${
+                      isCredit ? 'text-[#ba1a1a]' : 'text-[#406651]'
+                    }`}
+                  >
+                    {formatRupiah(acc.balance)}
+                  </p>
+                </div>
+
+                {/* Direct Ubah Saldo Button */}
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenEditBalance(e, acc)}
+                  className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                  title="Ubah Saldo Akun Ini"
                 >
-                  {formatRupiah(acc.balance)}
-                </p>
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Ubah Saldo</span>
+                </button>
               </div>
             </div>
           );
@@ -219,6 +263,82 @@ export const AkunKeuanganView: React.FC<AkunKeuanganViewProps> = ({
             >
               Reset Data Ke Rp 0
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Edit Balance Modal */}
+      {editingAccount && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-neutral-100 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-full ${editingAccount.bgColorClass} flex items-center justify-center`}>
+                  <span className={`material-symbols-outlined ${editingAccount.iconColorClass} text-[18px]`}>
+                    {editingAccount.icon}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-900">Ubah Saldo Akun</h3>
+                  <p className="text-[11px] text-neutral-500">{editingAccount.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAccount(null)}
+                className="p-1 rounded-full text-neutral-400 hover:bg-neutral-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedBalance} className="space-y-4">
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase block mb-1.5">
+                  Nominal Saldo Baru (Rp)
+                </label>
+                <input
+                  type="number"
+                  autoFocus
+                  value={newBalanceInput}
+                  onChange={(e) => setNewBalanceInput(e.target.value)}
+                  placeholder="Contoh: 1000000"
+                  className="w-full bg-[#f4f4f2] border border-[#e2e3e1] text-lg font-bold text-emerald-800 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-emerald-600 outline-none"
+                  required
+                />
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[0, 100000, 500000, 1000000, 5000000].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setNewBalanceInput(preset.toString())}
+                    className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-emerald-100 text-neutral-700 font-semibold text-[11px] transition-colors cursor-pointer"
+                  >
+                    {preset === 0 ? 'Rp 0' : formatRupiah(preset)}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingAccount(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-neutral-200 text-neutral-600 text-xs font-semibold hover:bg-neutral-50 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#406651] hover:bg-[#284e3a] text-white text-xs font-bold shadow-md shadow-[#406651]/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Simpan Saldo</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
